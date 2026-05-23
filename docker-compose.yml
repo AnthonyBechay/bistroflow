@@ -1,0 +1,48 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: always
+    environment:
+      # === REQUIRED: Fill these in ===
+      # PostgreSQL connection string
+      # Format: postgresql://USER:PASSWORD@HOST:PORT/DATABASE
+      # If using Coolify's built-in Postgres, Coolify auto-injects this
+      - DATABASE_URL=${DATABASE_URL}
+
+      # Secret key for signing JWT tokens (use a long random string)
+      # Generate one: openssl rand -base64 32
+      - JWT_SECRET=${JWT_SECRET}
+
+      # === Cloudflare R2 (for photo uploads) ===
+      - R2_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID}
+      - R2_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY}
+      - R2_ACCOUNT_ID=${R2_ACCOUNT_ID}
+      - R2_BUCKET_NAME=${R2_BUCKET_NAME}
+      - R2_PUBLIC_URL=${R2_PUBLIC_URL}
+
+      # === Anthropic (Traceability receipt extraction) ===
+      # Used by the Traceability feature to extract items from receipt photos via Claude vision
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+
+      # === Pre-configured (usually no changes needed) ===
+      - PORT=3001
+      - NODE_ENV=production
+    volumes:
+      - backend_data:/app/uploads
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3001/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    networks:
+      - coolify
+
+volumes:
+  backend_data:
+
+networks:
+  coolify:
+    external: true

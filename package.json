@@ -1,0 +1,17 @@
+{
+  "name": "bistroflow",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm dev:backend & pnpm dev:frontend",
+    "dev:backend": "pnpm --filter bistroflow-backend dev",
+    "dev:frontend": "pnpm --filter bistroflow-frontend dev",
+    "build": "pnpm --filter bistroflow-backend build && pnpm --filter bistroflow-frontend build",
+    "db:push": "pnpm --filter bistroflow-backend db:push",
+    "db:seed": "pnpm --filter bistroflow-backend db:seed",
+    "db:migrate": "pnpm --filter bistroflow-backend db:migrate"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["@prisma/client", "@prisma/engines", "prisma", "esbuild"]
+  }
+}
