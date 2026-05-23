@@ -26,7 +26,11 @@ router.get('/', async (req: AuthRequest, res) => {
     const templateWhere: any = { userId, isActive: true };
     if (restaurantId) {
       if (!canAccessRestaurant(req, restaurantId)) { res.json([]); return; }
-      templateWhere.restaurantId = restaurantId;
+      // Include templates for this specific restaurant AND global templates (no restaurant)
+      templateWhere.OR = [
+        { restaurantId },
+        { restaurantId: null },
+      ];
     } else {
       Object.assign(templateWhere, restaurantScope(req, 'restaurantId'));
     }

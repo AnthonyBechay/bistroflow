@@ -119,6 +119,7 @@ function DailyView({ selectedRestaurant }: DailyViewProps) {
   }, []);
 
   useEffect(() => {
+    if (!selectedRestaurant) return; // wait for restaurant to be selected
     load(date, selectedRestaurant);
   }, [date, selectedRestaurant, load]);
 
@@ -636,7 +637,9 @@ export default function Checklist() {
           </div>
         </div>
       </div>
-      {tab === 'daily' ? (
+      {!selectedRestaurant ? (
+        <div style={{ textAlign: 'center', padding: '3rem', opacity: 0.5 }}>Loading…</div>
+      ) : tab === 'daily' ? (
         <DailyView selectedRestaurant={selectedRestaurant} />
       ) : (
         <ConfigureView selectedRestaurant={selectedRestaurant} />

@@ -17,7 +17,7 @@ router.get('/', async (req: AuthRequest, res) => {
     const where: any = { userId: req.userId! };
     if (restaurantId) {
       if (!canAccessRestaurant(req, restaurantId)) { res.json([]); return; }
-      where.restaurantId = restaurantId;
+      where.OR = [{ restaurantId }, { restaurantId: null }];
     } else {
       Object.assign(where, restaurantScope(req, 'restaurantId'));
     }
@@ -40,7 +40,7 @@ router.get('/themes', async (req: AuthRequest, res) => {
     const where: any = { userId: req.userId!, theme: { not: null } };
     if (restaurantId) {
       if (!canAccessRestaurant(req, restaurantId)) { res.json([]); return; }
-      where.restaurantId = restaurantId;
+      where.OR = [{ restaurantId }, { restaurantId: null }];
     } else {
       Object.assign(where, restaurantScope(req, 'restaurantId'));
     }
