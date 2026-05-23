@@ -98,7 +98,17 @@ router.get('/me', authenticate, async (req: AuthRequest, res) => {
         res.status(404).json({ error: 'Account not found or disabled' });
         return;
       }
-      res.json({ ...sub, role: 'sub-account' });
+      
+      const employee = await prisma.employee.findFirst({
+        where: {
+          email: sub.email,
+          restaurant: { userId: req.userId! },
+          isActive: true,
+        },
+        include: { restaurant: true },
+      });
+
+      res.json({ ...sub, role: 'sub-account', employee });
       return;
     }
     const user = await prisma.user.findUnique({

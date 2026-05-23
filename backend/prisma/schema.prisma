@@ -245,6 +245,10 @@ model Employee {
   restaurant     Restaurant              @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   shifts         Shift[]
   scheduleOrders ScheduleEmployeeOrder[]
+  timeOffRequests TimeOffRequest[]
+  availabilities  Availability[]
+  swapRequesters  ShiftSwap[]             @relation("Requester")
+  swapTargets     ShiftSwap[]             @relation("Target")
   createdAt      DateTime                @default(now())
   updatedAt      DateTime                @updatedAt
 }
@@ -277,6 +281,7 @@ model Shift {
   employee      Employee   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   scheduleId    String
   schedule      Schedule   @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  swap          ShiftSwap?
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
 }
@@ -543,4 +548,55 @@ model SubAccount {
 
   @@unique([ownerId, email])
   @@index([email])
+}
+
+// ─── Employee Portal Extensions ───
+
+model TimeOffRequest {
+  id         String        @id @default(cuid())
+  employeeId String
+  employee   Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  startDate  DateTime
+  endDate    DateTime
+  reason     String?
+  status     TimeOffStatus @default(PENDING)
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+}
+
+model Availability {
+  id         String   @id @default(cuid())
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  dayOfWeek  Int      // 1 = Monday, ..., 7 = Sunday
+  startTime  String?  // e.g. "09:00"
+  endTime    String?  // e.g. "17:00"
+  isAvailable Boolean  @default(true)
+}
+
+model ShiftSwap {
+  id                     String     @id @default(cuid())
+  shiftId                String     @unique
+  shift                  Shift      @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+  requestingEmployeeId   String
+  requestingEmployee     Employee   @relation("Requester", fields: [requestingEmployeeId], references: [id], onDelete: Cascade)
+  targetEmployeeId       String?
+  targetEmployee         Employee?  @relation("Target", fields: [targetEmployeeId], references: [id], onDelete: Cascade)
+  status                 SwapStatus @default(PENDING)
+  createdAt              DateTime   @default(now())
+  updatedAt              DateTime   @updatedAt
+}
+
+enum TimeOffStatus {
+  PENDING
+  APPROVED
+  DENIED
+}
+
+enum SwapStatus {
+  PENDING
+  CLAIMED
+  APPROVED
+  DENIED
+  CANCELLED
 }

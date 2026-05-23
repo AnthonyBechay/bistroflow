@@ -61,16 +61,39 @@ const allSections: NavSection[] = [
 interface MeResponse {
   role: 'owner' | 'sub-account';
   allowedFeatures?: string[];
+  employee?: {
+    id: string;
+    name: string;
+    role: string | null;
+    restaurantId: string;
+  } | null;
 }
 
 function filterSections(me: MeResponse | null): NavSection[] {
   if (!me) return allSections; // optimistic: show everything until we know
-  if (me.role === 'owner') return allSections;
+  
+  let sections = [...allSections];
+  if (me.employee) {
+    sections = [
+      {
+        key: 'employee-portal',
+        label: 'Employee Portal',
+        icon: Users,
+        items: [
+          { to: '/app/employee-portal', icon: CalendarDays, label: 'My Space' },
+        ],
+      },
+      ...allSections,
+    ];
+  }
+
+  if (me.role === 'owner') return sections;
   const allowed = me.allowedFeatures || [];
   // empty list = no restriction (matches backend semantics)
   const hasAll = allowed.length === 0;
-  return allSections
+  return sections
     .map((s) => {
+      if (s.key === 'employee-portal') return s;
       // Sub-accounts still get a "Settings" section on mobile, but it only
       // contains the Sign Out action (rendered from the sheet itself).
       if (s.key === 'settings') return { ...s, items: [] };

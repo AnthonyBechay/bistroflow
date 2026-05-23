@@ -25,6 +25,12 @@ CREATE TYPE "TempUnit" AS ENUM ('CELSIUS', 'FAHRENHEIT');
 -- CreateEnum
 CREATE TYPE "TempDeviceType" AS ENUM ('FRIDGE', 'FREEZER', 'COLD_ROOM', 'WINE_CELLAR', 'OVEN', 'WARMER', 'OTHER');
 
+-- CreateEnum
+CREATE TYPE "TimeOffStatus" AS ENUM ('PENDING', 'APPROVED', 'DENIED');
+
+-- CreateEnum
+CREATE TYPE "SwapStatus" AS ENUM ('PENDING', 'CLAIMED', 'APPROVED', 'DENIED', 'CANCELLED');
+
 -- CreateTable
 CREATE TABLE "User" (
     "id" TEXT NOT NULL,
@@ -464,6 +470,45 @@ CREATE TABLE "SubAccount" (
 );
 
 -- CreateTable
+CREATE TABLE "TimeOffRequest" (
+    "id" TEXT NOT NULL,
+    "employeeId" TEXT NOT NULL,
+    "startDate" TIMESTAMP(3) NOT NULL,
+    "endDate" TIMESTAMP(3) NOT NULL,
+    "reason" TEXT,
+    "status" "TimeOffStatus" NOT NULL DEFAULT 'PENDING',
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "TimeOffRequest_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Availability" (
+    "id" TEXT NOT NULL,
+    "employeeId" TEXT NOT NULL,
+    "dayOfWeek" INTEGER NOT NULL,
+    "startTime" TEXT,
+    "endTime" TEXT,
+    "isAvailable" BOOLEAN NOT NULL DEFAULT true,
+
+    CONSTRAINT "Availability_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "ShiftSwap" (
+    "id" TEXT NOT NULL,
+    "shiftId" TEXT NOT NULL,
+    "requestingEmployeeId" TEXT NOT NULL,
+    "targetEmployeeId" TEXT,
+    "status" "SwapStatus" NOT NULL DEFAULT 'PENDING',
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "ShiftSwap_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "_IngredientToIngredientTag" (
     "A" TEXT NOT NULL,
     "B" TEXT NOT NULL,
@@ -539,6 +584,9 @@ CREATE INDEX "SubAccount_email_idx" ON "SubAccount"("email");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "SubAccount_ownerId_email_key" ON "SubAccount"("ownerId", "email");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "ShiftSwap_shiftId_key" ON "ShiftSwap"("shiftId");
 
 -- CreateIndex
 CREATE INDEX "_IngredientToIngredientTag_B_index" ON "_IngredientToIngredientTag"("B");
@@ -656,6 +704,21 @@ ALTER TABLE "TempLog" ADD CONSTRAINT "TempLog_userId_fkey" FOREIGN KEY ("userId"
 
 -- AddForeignKey
 ALTER TABLE "SubAccount" ADD CONSTRAINT "SubAccount_ownerId_fkey" FOREIGN KEY ("ownerId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "TimeOffRequest" ADD CONSTRAINT "TimeOffRequest_employeeId_fkey" FOREIGN KEY ("employeeId") REFERENCES "Employee"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Availability" ADD CONSTRAINT "Availability_employeeId_fkey" FOREIGN KEY ("employeeId") REFERENCES "Employee"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ShiftSwap" ADD CONSTRAINT "ShiftSwap_shiftId_fkey" FOREIGN KEY ("shiftId") REFERENCES "Shift"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ShiftSwap" ADD CONSTRAINT "ShiftSwap_requestingEmployeeId_fkey" FOREIGN KEY ("requestingEmployeeId") REFERENCES "Employee"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ShiftSwap" ADD CONSTRAINT "ShiftSwap_targetEmployeeId_fkey" FOREIGN KEY ("targetEmployeeId") REFERENCES "Employee"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "_IngredientToIngredientTag" ADD CONSTRAINT "_IngredientToIngredientTag_A_fkey" FOREIGN KEY ("A") REFERENCES "Ingredient"("id") ON DELETE CASCADE ON UPDATE CASCADE;

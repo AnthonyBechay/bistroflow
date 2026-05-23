@@ -21,6 +21,7 @@ import checklistTemplateRoutes from './routes/checklist-templates';
 import checklistRunRoutes from './routes/checklist-runs';
 import tempDeviceRoutes from './routes/temp-devices';
 import tempLogRoutes from './routes/temp-logs';
+import employeePortalRoutes from './routes/employee-portal';
 
 const prisma = new PrismaClient();
 
@@ -52,6 +53,7 @@ app.use('/api/checklist-templates', checklistTemplateRoutes);
 app.use('/api/checklist-runs', checklistRunRoutes);
 app.use('/api/temp-devices', tempDeviceRoutes);
 app.use('/api/temp-logs', tempLogRoutes);
+app.use('/api/employee-portal', employeePortalRoutes);
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok' });

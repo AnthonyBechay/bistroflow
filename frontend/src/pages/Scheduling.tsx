@@ -13,20 +13,15 @@ const COLORS = ['#c8956c', '#6a9fd4', '#4a9e6a', '#d4a035', '#9b6cc8', '#d46a6a'
 
 export default function Scheduling() {
   const navigate = useNavigate();
-  const [tab, setTab] = useState<'schedules' | 'employees' | 'restaurants'>('schedules');
+  const [tab, setTab] = useState<'schedules' | 'employees'>('schedules');
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [selectedRestaurant, setSelectedRestaurant] = useState('');
 
-  const [showRestModal, setShowRestModal] = useState(false);
   const [showEmpModal, setShowEmpModal] = useState(false);
   const [showSchedModal, setShowSchedModal] = useState(false);
   const [editingEmp, setEditingEmp] = useState<Employee | null>(null);
-  const [editingRest, setEditingRest] = useState<Restaurant | null>(null);
-  const [restForm, setRestForm] = useState({ name: '', address: '', phone: '', logoUrl: '', details: '' });
-  const [logoFile, setLogoFile] = useState<File | null>(null);
-  const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [empForm, setEmpForm] = useState({ name: '', role: '', phone: '', email: '', color: COLORS[0], hourlyRate: '', restaurantId: '' });
   const [schedForm, setSchedForm] = useState({ weekStart: '', restaurantId: '', copyFromId: '' });
   const [schedError, setSchedError] = useState('');
@@ -42,38 +37,7 @@ export default function Scheduling() {
 
   useEffect(() => { load(); }, [selectedRestaurant]);
 
-  const handleCreateRestaurant = async (e: React.FormEvent) => {
-    e.preventDefault();
-    let rest;
-    if (editingRest) {
-      rest = await api.put(`/restaurants/${editingRest.id}`, restForm);
-    } else {
-      rest = await api.post('/restaurants', restForm);
-    }
-    if (logoFile && rest?.id) {
-      await api.upload(`/restaurants/${rest.id}/upload-logo`, logoFile);
-    }
-    setShowRestModal(false);
-    setEditingRest(null);
-    setRestForm({ name: '', address: '', phone: '', logoUrl: '', details: '' });
-    setLogoFile(null);
-    setLogoPreview(null);
-    load();
-  };
 
-  const openEditRest = (rest: Restaurant) => {
-    setEditingRest(rest);
-    setRestForm({
-      name: rest.name,
-      address: rest.address || '',
-      phone: rest.phone || '',
-      logoUrl: rest.logoUrl || '',
-      details: rest.details || '',
-    });
-    setLogoFile(null);
-    setLogoPreview(rest.logoUrl || null);
-    setShowRestModal(true);
-  };
 
   const handleCreateEmployee = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -189,7 +153,6 @@ export default function Scheduling() {
           <p className="page-subtitle">Manage employees and weekly schedules</p>
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
-          {tab === 'restaurants' && <button className="btn btn-primary" onClick={() => setShowRestModal(true)}><Plus size={18} /> Add Restaurant</button>}
           {tab === 'employees' && <button className="btn btn-primary" onClick={() => { setEditingEmp(null); setEmpForm({ name: '', role: '', phone: '', email: '', color: COLORS[Math.floor(Math.random() * COLORS.length)], hourlyRate: '', restaurantId: selectedRestaurant || (restaurants[0]?.id || '') }); setShowEmpModal(true); }}><Plus size={18} /> Add Employee</button>}
           {tab === 'schedules' && <button className="btn btn-primary" onClick={() => { const restId = selectedRestaurant || (restaurants[0]?.id || ''); setSchedForm({ weekStart: '', restaurantId: restId, copyFromId: '' }); loadCopyFromSchedules(restId); setShowSchedModal(true); }}><Plus size={18} /> New Schedule</button>}
         </div>
@@ -202,12 +165,9 @@ export default function Scheduling() {
         <button className={`sched-tab ${tab === 'employees' ? 'active' : ''}`} onClick={() => setTab('employees')}>
           <Users size={16} /> Employees ({employees.length})
         </button>
-        <button className={`sched-tab ${tab === 'restaurants' ? 'active' : ''}`} onClick={() => setTab('restaurants')}>
-          <Building2 size={16} /> Restaurants ({restaurants.length})
-        </button>
         <div style={{ flex: 1 }} />
         <select className="select" style={{ width: 200 }} value={selectedRestaurant} onChange={e => setSelectedRestaurant(e.target.value)}>
-          <option value="">All Restaurants</option>
+          <option value="">All Branches</option>
           {restaurants.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
         </select>
       </div>
@@ -283,94 +243,7 @@ export default function Scheduling() {
         )
       )}
 
-      {/* Restaurants Tab */}
-      {tab === 'restaurants' && (
-        restaurants.length === 0 ? (
-          <div className="empty-state">
-            <Building2 size={48} />
-            <h3>No restaurants yet</h3>
-            <p>Add a restaurant to get started</p>
-            <button className="btn btn-primary" onClick={() => setShowRestModal(true)}><Plus size={18} /> Add Restaurant</button>
-          </div>
-        ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 12 }}>
-            {restaurants.map(rest => (
-              <div key={rest.id} className="card" style={{ padding: 20 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    {rest.logoUrl ? (
-                      <img src={rest.logoUrl} alt="" style={{ width: 36, height: 36, borderRadius: 8, objectFit: 'cover' }} />
-                    ) : (
-                      <div style={{ width: 36, height: 36, borderRadius: 8, background: 'var(--color-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 16 }}>{rest.name.charAt(0)}</div>
-                    )}
-                    <strong style={{ fontSize: 16 }}>{rest.name}</strong>
-                  </div>
-                  <div style={{ display: 'flex', gap: 4 }}>
-                    <button className="btn-icon" title="Edit" onClick={() => openEditRest(rest)}><Edit3 size={14} /></button>
-                    <button className="btn-icon" title="Delete" onClick={async () => { if (confirm('Delete restaurant and all its employees?')) { await api.delete(`/restaurants/${rest.id}`); load(); } }}><Trash2 size={14} /></button>
-                  </div>
-                </div>
-                {rest.address && <div style={{ fontSize: 13, color: 'var(--color-text-muted)', marginBottom: 4 }}>{rest.address}</div>}
-                {rest.phone && <div style={{ fontSize: 13, color: 'var(--color-text-muted)', marginBottom: 4 }}>{rest.phone}</div>}
-                {rest.details && <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 4, fontStyle: 'italic' }}>{rest.details}</div>}
-                <div style={{ fontSize: 13, color: 'var(--color-text-secondary)', marginTop: 4 }}>{rest._count.employees} employees</div>
-                <button className="btn btn-secondary btn-sm" style={{ marginTop: 10, width: '100%' }} onClick={() => navigate(`/app/scheduling/salaries/${rest.id}`)}>
-                  <DollarSign size={14} /> Salaries
-                </button>
-              </div>
-            ))}
-          </div>
-        )
-      )}
 
-      {/* Restaurant Modal */}
-      <Modal isOpen={showRestModal} onClose={() => { setShowRestModal(false); setEditingRest(null); }} title={editingRest ? 'Edit Restaurant' : 'Add Restaurant'}>
-        <form onSubmit={handleCreateRestaurant}>
-          <div className="form-group">
-            <label className="label">Restaurant Name *</label>
-            <input className="input" value={restForm.name} onChange={e => setRestForm({ ...restForm, name: e.target.value })} required />
-          </div>
-          <div className="form-group">
-            <label className="label">Address</label>
-            <input className="input" value={restForm.address} onChange={e => setRestForm({ ...restForm, address: e.target.value })} placeholder="123 Main St" />
-          </div>
-          <div className="form-group">
-            <label className="label">Phone</label>
-            <input className="input" value={restForm.phone} onChange={e => setRestForm({ ...restForm, phone: e.target.value })} placeholder="+1 555 123 4567" />
-          </div>
-          <div className="form-group">
-            <label className="label">Logo</label>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              {(logoPreview || restForm.logoUrl) && (
-                <img src={logoFile ? logoPreview! : restForm.logoUrl} alt="" style={{ width: 48, height: 48, borderRadius: 10, objectFit: 'cover', border: '1px solid var(--color-border)' }} />
-              )}
-              <label className="btn btn-secondary btn-sm" style={{ cursor: 'pointer', margin: 0 }}>
-                <Upload size={14} /> {logoPreview || restForm.logoUrl ? 'Change' : 'Upload'}
-                <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => {
-                  const file = e.target.files?.[0];
-                  if (file) {
-                    setLogoFile(file);
-                    setLogoPreview(URL.createObjectURL(file));
-                  }
-                }} />
-              </label>
-              {(logoPreview || restForm.logoUrl) && (
-                <button type="button" className="btn-icon" onClick={() => { setLogoFile(null); setLogoPreview(null); setRestForm({ ...restForm, logoUrl: '' }); }} title="Remove logo">
-                  <X size={14} />
-                </button>
-              )}
-            </div>
-          </div>
-          <div className="form-group">
-            <label className="label">Details / Notes</label>
-            <textarea className="input" rows={3} value={restForm.details} onChange={e => setRestForm({ ...restForm, details: e.target.value })} placeholder="Additional info (shown in salary reports, etc.)" style={{ resize: 'vertical' }} />
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
-            <button type="button" className="btn btn-secondary" onClick={() => { setShowRestModal(false); setEditingRest(null); }}>Cancel</button>
-            <button type="submit" className="btn btn-primary">{editingRest ? 'Update' : 'Add'}</button>
-          </div>
-        </form>
-      </Modal>
 
       {/* Employee Modal */}
       <Modal isOpen={showEmpModal} onClose={() => { setShowEmpModal(false); setEditingEmp(null); }} title={editingEmp ? 'Edit Employee' : 'Add Employee'}>

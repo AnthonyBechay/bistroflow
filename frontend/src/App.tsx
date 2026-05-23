@@ -16,6 +16,7 @@ import Traceability from './pages/Traceability';
 import Checklist from './pages/Checklist';
 import Temperature from './pages/Temperature';
 import Settings from './pages/Settings';
+import EmployeePortal from './pages/EmployeePortal';
 import Layout from './components/Layout';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -46,6 +47,7 @@ export default function App() {
           <Route path="checklists" element={<Checklist />} />
           <Route path="temperatures" element={<Temperature />} />
           <Route path="settings" element={<Settings />} />
+          <Route path="employee-portal" element={<EmployeePortal />} />
         </Route>
       </Routes>
     </BrowserRouter>

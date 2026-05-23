@@ -7,7 +7,7 @@
 .sidebar {
   width: 240px;
   min-width: 240px;
-  background: #000;
+  background: var(--color-bg-warm);
   border-right: 1px solid var(--color-border);
   display: flex;
   flex-direction: column;
@@ -94,8 +94,10 @@
 }
 
 .sidebar-link.active {
-  color: var(--color-primary-light);
-  background: rgba(200, 149, 108, 0.1);
+  color: var(--color-primary-dark);
+  background: var(--color-surface);
+  font-weight: 600;
+  box-shadow: var(--shadow);
 }
 
 .sidebar-footer {
@@ -163,7 +165,7 @@
     left: 0;
     right: 0;
     height: 64px;
-    background: #000;
+    background: var(--color-bg-warm);
     border-top: 1px solid var(--color-border);
     padding: 6px 4px;
     z-index: 100;
@@ -197,8 +199,9 @@
     max-width: 100%;
   }
   .mobile-nav-btn.active {
-    color: var(--color-primary-light);
-    background: rgba(200, 149, 108, 0.12);
+    color: var(--color-primary-dark);
+    background: var(--color-surface);
+    font-weight: 600;
   }
 
   .mobile-sheet-overlay {

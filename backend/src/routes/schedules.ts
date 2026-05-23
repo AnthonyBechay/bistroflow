@@ -546,4 +546,207 @@ router.delete('/shifts/:shiftId', async (req: AuthRequest, res) => {
   }
 });
 
+// ─── Manager Request Approvals ───
+router.get('/pending-requests', async (req: AuthRequest, res) => {
+  try {
+    const { restaurantId } = req.query;
+    
+    const timeOffWhere: any = {
+      status: 'PENDING',
+      employee: {
+        restaurant: {
+          userId: req.userId!,
+        }
+      }
+    };
+    
+    const swapsWhere: any = {
+      status: { in: ['PENDING', 'CLAIMED'] },
+      requestingEmployee: {
+        restaurant: {
+          userId: req.userId!,
+        }
+      }
+    };
+
+    if (restaurantId) {
+      if (!canAccessRestaurant(req, restaurantId as string)) {
+        res.json({ timeOff: [], swaps: [] });
+        return;
+      }
+      timeOffWhere.employee.restaurant.id = restaurantId as string;
+      swapsWhere.requestingEmployee.restaurant.id = restaurantId as string;
+    } else {
+      const scope = restaurantScope(req, 'id');
+      if (scope.id) {
+        timeOffWhere.employee.restaurant.id = scope.id;
+        swapsWhere.requestingEmployee.restaurant.id = scope.id;
+      }
+    }
+
+    const timeOff = await prisma.timeOffRequest.findMany({
+      where: timeOffWhere,
+      include: {
+        employee: {
+          include: { restaurant: true }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    const swaps = await prisma.shiftSwap.findMany({
+      where: swapsWhere,
+      include: {
+        shift: {
+          include: { schedule: true }
+        },
+        requestingEmployee: {
+          include: { restaurant: true }
+        },
+        targetEmployee: {
+          include: { restaurant: true }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    res.json({ timeOff, swaps });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch pending requests' });
+  }
+});
+
+router.post('/swaps/:id/approve', async (req: AuthRequest, res) => {
+  try {
+    const swap = await prisma.shiftSwap.findUnique({
+      where: { id: req.params.id as string },
+      include: {
+        shift: true,
+        requestingEmployee: { include: { restaurant: true } },
+        targetEmployee: true,
+      }
+    });
+
+    if (!swap) {
+      res.status(404).json({ error: 'Swap request not found' });
+      return;
+    }
+
+    if (swap.requestingEmployee.restaurant.userId !== req.userId || !canAccessRestaurant(req, swap.requestingEmployee.restaurantId)) {
+      res.status(403).json({ error: 'Forbidden' });
+      return;
+    }
+
+    if (swap.status !== 'CLAIMED' && !swap.targetEmployeeId) {
+      res.status(400).json({ error: 'Shift swap must be claimed before approval' });
+      return;
+    }
+
+    await prisma.$transaction([
+      prisma.shift.update({
+        where: { id: swap.shiftId },
+        data: { employeeId: swap.targetEmployeeId! }
+      }),
+      prisma.shiftSwap.update({
+        where: { id: swap.id },
+        data: { status: 'APPROVED' }
+      })
+    ]);
+
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to approve shift swap' });
+  }
+});
+
+router.post('/swaps/:id/deny', async (req: AuthRequest, res) => {
+  try {
+    const swap = await prisma.shiftSwap.findUnique({
+      where: { id: req.params.id as string },
+      include: {
+        requestingEmployee: { include: { restaurant: true } }
+      }
+    });
+
+    if (!swap) {
+      res.status(404).json({ error: 'Swap request not found' });
+      return;
+    }
+
+    if (swap.requestingEmployee.restaurant.userId !== req.userId || !canAccessRestaurant(req, swap.requestingEmployee.restaurantId)) {
+      res.status(403).json({ error: 'Forbidden' });
+      return;
+    }
+
+    await prisma.shiftSwap.update({
+      where: { id: swap.id },
+      data: { status: 'DENIED' }
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to deny shift swap' });
+  }
+});
+
+router.post('/time-off/:id/approve', async (req: AuthRequest, res) => {
+  try {
+    const request = await prisma.timeOffRequest.findUnique({
+      where: { id: req.params.id as string },
+      include: {
+        employee: { include: { restaurant: true } }
+      }
+    });
+
+    if (!request) {
+      res.status(404).json({ error: 'Time-off request not found' });
+      return;
+    }
+
+    if (request.employee.restaurant.userId !== req.userId || !canAccessRestaurant(req, request.employee.restaurantId)) {
+      res.status(403).json({ error: 'Forbidden' });
+      return;
+    }
+
+    await prisma.timeOffRequest.update({
+      where: { id: request.id },
+      data: { status: 'APPROVED' }
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to approve time-off request' });
+  }
+});
+
+router.post('/time-off/:id/deny', async (req: AuthRequest, res) => {
+  try {
+    const request = await prisma.timeOffRequest.findUnique({
+      where: { id: req.params.id as string },
+      include: {
+        employee: { include: { restaurant: true } }
+      }
+    });
+
+    if (!request) {
+      res.status(404).json({ error: 'Time-off request not found' });
+      return;
+    }
+
+    if (request.employee.restaurant.userId !== req.userId || !canAccessRestaurant(req, request.employee.restaurantId)) {
+      res.status(403).json({ error: 'Forbidden' });
+      return;
+    }
+
+    await prisma.timeOffRequest.update({
+      where: { id: request.id },
+      data: { status: 'DENIED' }
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to deny time-off request' });
+  }
+});
+
 export default router;
