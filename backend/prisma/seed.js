@@ -25,40 +25,52 @@ async function main() {
   console.log(`Starting seed database. Scoping everything to ${email}...`);
 
   console.log('Cleaning up existing data...');
-  await prisma.tempLog.deleteMany({});
-  await prisma.tempDevice.deleteMany({});
-  await prisma.checklistRunItem.deleteMany({});
-  await prisma.checklistRun.deleteMany({});
-  await prisma.checklistTemplateItem.deleteMany({});
-  await prisma.checklistTemplate.deleteMany({});
-  await prisma.menuItem.deleteMany({});
-  await prisma.menu.deleteMany({});
-  await prisma.recipeIngredient.deleteMany({});
-  await prisma.recipe.deleteMany({});
-  await prisma.subcategory.deleteMany({});
-  await prisma.category.deleteMany({});
-  await prisma.orderItem.deleteMany({});
-  await prisma.orderPhoto.deleteMany({});
-  await prisma.order.deleteMany({});
-  await prisma.receiptItem.deleteMany({});
-  await prisma.receipt.deleteMany({});
-  await prisma.ingredientTag.deleteMany({});
-  await prisma.ingredient.deleteMany({});
-  await prisma.ingredientSubcategory.deleteMany({});
-  await prisma.ingredientCategory.deleteMany({});
-  await prisma.storageLocation.deleteMany({});
-  await prisma.supplier.deleteMany({});
+  const safeDelete = async (promise, name) => {
+    try {
+      await promise;
+    } catch (err) {
+      if (err.code === 'P2021' || err.message?.includes('does not exist')) {
+        console.log(`⚠️ Table ${name} does not exist. Skipping.`);
+      } else {
+        throw err;
+      }
+    }
+  };
+
+  await safeDelete(prisma.tempLog.deleteMany({}), 'TempLog');
+  await safeDelete(prisma.tempDevice.deleteMany({}), 'TempDevice');
+  await safeDelete(prisma.checklistRunItem.deleteMany({}), 'ChecklistRunItem');
+  await safeDelete(prisma.checklistRun.deleteMany({}), 'ChecklistRun');
+  await safeDelete(prisma.checklistTemplateItem.deleteMany({}), 'ChecklistTemplateItem');
+  await safeDelete(prisma.checklistTemplate.deleteMany({}), 'ChecklistTemplate');
+  await safeDelete(prisma.menuItem.deleteMany({}), 'MenuItem');
+  await safeDelete(prisma.menu.deleteMany({}), 'Menu');
+  await safeDelete(prisma.recipeIngredient.deleteMany({}), 'RecipeIngredient');
+  await safeDelete(prisma.recipe.deleteMany({}), 'Recipe');
+  await safeDelete(prisma.subcategory.deleteMany({}), 'Subcategory');
+  await safeDelete(prisma.category.deleteMany({}), 'Category');
+  await safeDelete(prisma.orderItem.deleteMany({}), 'OrderItem');
+  await safeDelete(prisma.orderPhoto.deleteMany({}), 'OrderPhoto');
+  await safeDelete(prisma.order.deleteMany({}), 'Order');
+  await safeDelete(prisma.receiptItem.deleteMany({}), 'ReceiptItem');
+  await safeDelete(prisma.receipt.deleteMany({}), 'Receipt');
+  await safeDelete(prisma.ingredientTag.deleteMany({}), 'IngredientTag');
+  await safeDelete(prisma.ingredient.deleteMany({}), 'Ingredient');
+  await safeDelete(prisma.ingredientSubcategory.deleteMany({}), 'IngredientSubcategory');
+  await safeDelete(prisma.ingredientCategory.deleteMany({}), 'IngredientCategory');
+  await safeDelete(prisma.storageLocation.deleteMany({}), 'StorageLocation');
+  await safeDelete(prisma.supplier.deleteMany({}), 'Supplier');
   
-  await prisma.timeOffRequest.deleteMany({});
-  await prisma.availability.deleteMany({});
-  await prisma.shiftSwap.deleteMany({});
-  await prisma.shift.deleteMany({});
-  await prisma.scheduleEmployeeOrder.deleteMany({});
-  await prisma.schedule.deleteMany({});
-  await prisma.employee.deleteMany({});
-  await prisma.restaurant.deleteMany({});
-  await prisma.subAccount.deleteMany({});
-  await prisma.user.deleteMany({});
+  await safeDelete(prisma.timeOffRequest.deleteMany({}), 'TimeOffRequest');
+  await safeDelete(prisma.availability.deleteMany({}), 'Availability');
+  await safeDelete(prisma.shiftSwap.deleteMany({}), 'ShiftSwap');
+  await safeDelete(prisma.shift.deleteMany({}), 'Shift');
+  await safeDelete(prisma.scheduleEmployeeOrder.deleteMany({}), 'ScheduleEmployeeOrder');
+  await safeDelete(prisma.schedule.deleteMany({}), 'Schedule');
+  await safeDelete(prisma.employee.deleteMany({}), 'Employee');
+  await safeDelete(prisma.restaurant.deleteMany({}), 'Restaurant');
+  await safeDelete(prisma.subAccount.deleteMany({}), 'SubAccount');
+  await safeDelete(prisma.user.deleteMany({}), 'User');
 
   let user = await prisma.user.findUnique({ where: { email } });
   if (!user) {
