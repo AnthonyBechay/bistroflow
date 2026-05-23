@@ -21,6 +21,23 @@ export default function Login() {
     }
   }, [navigate]);
 
+  const handleDemoLogin = async (role: 'manager' | 'employee') => {
+    setError('');
+    setLoading(true);
+    try {
+      const credentials = role === 'manager'
+        ? { email: 'demo@bistroflow.com', password: 'demo123' }
+        : { email: 'alice.demo@bistroflow.com', password: 'alice123' };
+      const data = await api.post('/auth/login', credentials);
+      localStorage.setItem('token', data.token);
+      navigate('/app');
+    } catch (err: any) {
+      setError(err.message || 'Demo login failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -105,6 +122,21 @@ export default function Login() {
         <button className="login-toggle" onClick={() => { setIsRegister(!isRegister); setError(''); }}>
           {isRegister ? 'Already have an account? Sign in' : "Don't have an account? Register"}
         </button>
+        
+        <div className="demo-shortcuts">
+          <div className="demo-divider">
+            <span>Or try the demo</span>
+          </div>
+          <div className="demo-buttons">
+            <button type="button" className="btn demo-btn" onClick={() => handleDemoLogin('manager')} disabled={loading}>
+              Manager Demo
+            </button>
+            <button type="button" className="btn demo-btn" onClick={() => handleDemoLogin('employee')} disabled={loading}>
+              Employee Demo
+            </button>
+          </div>
+        </div>
+
         <button className="login-back" onClick={() => navigate('/')}>Back to home</button>
       </div>
     </div>
