@@ -93,17 +93,22 @@ const TYPE_ICONS: Record<ChecklistType, any> = { OPENING: Sun, CUSTOM: Tag, CLOS
 
 // ─── Daily View ──────────────────────────────────────────────────────────────
 
-function DailyView() {
+interface DailyViewProps {
+  selectedRestaurant: string;
+}
+
+function DailyView({ selectedRestaurant }: DailyViewProps) {
   const [date, setDate] = useState<Date>(new Date());
   const [runs, setRuns] = useState<Run[]>([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [toggling, setToggling] = useState<Set<string>>(new Set());
 
-  const load = useCallback(async (d: Date) => {
+  const load = useCallback(async (d: Date, restId: string) => {
     setLoading(true);
     try {
-      const data = await api.get(`/checklist-runs?date=${toDateStr(d)}`);
+      const q = restId ? `&restaurantId=${restId}` : '';
+      const data = await api.get(`/checklist-runs?date=${toDateStr(d)}${q}`);
       setRuns(data);
       // Auto-expand incomplete runs
       const ids = new Set<string>(data.filter((r: Run) => runStatus(r) !== 'done').map((r: Run) => r.id));
@@ -113,7 +118,9 @@ function DailyView() {
     }
   }, []);
 
-  useEffect(() => { load(date); }, [date, load]);
+  useEffect(() => {
+    load(date, selectedRestaurant);
+  }, [date, selectedRestaurant, load]);
 
   const toggleExpand = (id: string) =>
     setExpanded((prev) => {
@@ -291,7 +298,11 @@ const EMPTY_FORM = () => ({
   items: [EMPTY_ITEM()],
 });
 
-function ConfigureView() {
+interface ConfigureViewProps {
+  selectedRestaurant: string;
+}
+
+function ConfigureView({ selectedRestaurant }: ConfigureViewProps) {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [themes, setThemes] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -302,17 +313,22 @@ function ConfigureView() {
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [t, th] = await Promise.all([api.get('/checklist-templates'), api.get('/checklist-templates/themes')]);
+      const q = selectedRestaurant ? `?restaurantId=${selectedRestaurant}` : '';
+      const [t, th] = await Promise.all([
+        api.get(`/checklist-templates${q}`),
+        api.get(`/checklist-templates/themes${q}`)
+      ]);
       setTemplates(t);
       setThemes(th);
     } finally {
       setLoading(false);
     }
-  };
-  useEffect(() => { load(); }, []);
+  }, [selectedRestaurant]);
+
+  useEffect(() => { load(); }, [load]);
 
   const openCreate = () => {
     setEditing(null);
@@ -342,6 +358,7 @@ function ConfigureView() {
     const payload = {
       ...form,
       theme: themeInput.trim() || null,
+      restaurantId: selectedRestaurant || null,
       items: form.items
         .filter((it) => it.label.trim())
         .map((it, idx) => ({ ...it, order: idx })),
@@ -393,60 +410,66 @@ function ConfigureView() {
     <div>
       <div className="cl-cfg-toolbar">
         <h2>Checklist Templates</h2>
-        <button className="btn btn-primary btn-sm" onClick={openCreate}>
+        <button className="btn btn-primary btn-sm" onClick={openCreate} disabled={!selectedRestaurant}>
           <Plus size={15} /> New checklist
         </button>
       </div>
 
-      {loading ? (
-        <div className="cl-empty" style={{ padding: '2rem' }}>Loading…</div>
-      ) : templates.length === 0 ? (
-        <div className="cl-empty">
-          <ClipboardList size={40} className="cl-empty-icon" />
-          <strong>No templates yet</strong>
-          Create a template and it will appear every day automatically.
-        </div>
-      ) : (
-        <div className="cl-cfg-list">
-          {TYPE_ORDER.map((type) => {
-            const list = grouped[type];
-            if (!list.length) return null;
-            const Icon = TYPE_ICONS[type];
-            return (
-              <div key={type} className="cl-section">
-                <div className="cl-section-title"><Icon size={13} />{TYPE_LABELS[type]}</div>
-                {list.map((t) => (
-                  <div key={t.id} className={`cl-cfg-card ${!t.isActive ? 'cl-cfg-inactive' : ''}`}>
-                    <div className="cl-cfg-card-header">
-                      <div className="cl-cfg-card-name">{t.name}</div>
-                      <div className="cl-cfg-card-meta">
-                        {t.theme && <span className="cl-theme-badge">{t.theme}</span>}
-                        <span className="cl-item-count">{t.items.length} tasks</span>
-                        <span className={`cl-type-badge ${t.type}`}>{TYPE_LABELS[t.type]}</span>
-                      </div>
-                      <div className="cl-cfg-card-actions">
-                        <button
-                          className="btn-icon"
-                          title={t.isActive ? 'Deactivate' : 'Activate'}
-                          onClick={() => toggleActive(t)}
-                          style={{ color: t.isActive ? '#4caf7d' : 'var(--color-text-muted)' }}
-                        >
-                          <Check size={15} />
-                        </button>
-                        <button className="btn-icon" title="Edit" onClick={() => openEdit(t)}>
-                          <Edit3 size={14} />
-                        </button>
-                        <button className="btn-icon" title="Delete" onClick={() => remove(t.id)}>
-                          <Trash2 size={14} />
-                        </button>
+      {!selectedRestaurant && (
+        <div className="cl-empty">Please select a branch to manage checklist templates.</div>
+      )}
+
+      {selectedRestaurant && (
+        loading ? (
+          <div className="cl-empty" style={{ padding: '2rem' }}>Loading…</div>
+        ) : templates.length === 0 ? (
+          <div className="cl-empty">
+            <ClipboardList size={40} className="cl-empty-icon" />
+            <strong>No templates yet</strong>
+            Create a template and it will appear every day automatically.
+          </div>
+        ) : (
+          <div className="cl-cfg-list">
+            {TYPE_ORDER.map((type) => {
+              const list = grouped[type];
+              if (!list.length) return null;
+              const Icon = TYPE_ICONS[type];
+              return (
+                <div key={type} className="cl-section">
+                  <div className="cl-section-title"><Icon size={13} />{TYPE_LABELS[type]}</div>
+                  {list.map((t) => (
+                    <div key={t.id} className={`cl-cfg-card ${!t.isActive ? 'cl-cfg-inactive' : ''}`}>
+                      <div className="cl-cfg-card-header">
+                        <div className="cl-cfg-card-name">{t.name}</div>
+                        <div className="cl-cfg-card-meta">
+                          {t.theme && <span className="cl-theme-badge">{t.theme}</span>}
+                          <span className="cl-item-count">{t.items.length} tasks</span>
+                          <span className={`cl-type-badge ${t.type}`}>{TYPE_LABELS[t.type]}</span>
+                        </div>
+                        <div className="cl-cfg-card-actions">
+                          <button
+                            className="btn-icon"
+                            title={t.isActive ? 'Deactivate' : 'Activate'}
+                            onClick={() => toggleActive(t)}
+                            style={{ color: t.isActive ? '#4caf7d' : 'var(--color-text-muted)' }}
+                          >
+                            <Check size={15} />
+                          </button>
+                          <button className="btn-icon" title="Edit" onClick={() => openEdit(t)}>
+                            <Edit3 size={14} />
+                          </button>
+                          <button className="btn-icon" title="Delete" onClick={() => remove(t.id)}>
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            );
-          })}
-        </div>
+                  ))}
+                </div>
+              );
+            })}
+          </div>
+        )
       )}
 
       {showModal && (
@@ -570,21 +593,54 @@ type Tab = 'daily' | 'configure';
 
 export default function Checklist() {
   const [tab, setTab] = useState<Tab>('daily');
+  const [restaurants, setRestaurants] = useState<any[]>([]);
+  const [selectedRestaurant, setSelectedRestaurant] = useState<string>('');
+
+  useEffect(() => {
+    api.get('/restaurants').then((data) => {
+      setRestaurants(data);
+      if (data.length > 0) {
+        setSelectedRestaurant(data[0].id);
+      }
+    }).catch(() => {});
+  }, []);
 
   return (
     <div className="cl-page">
       <div className="cl-header">
-        <h1 className="cl-title">Checklists</h1>
-        <div className="cl-tabs">
-          <button className={`cl-tab ${tab === 'daily' ? 'active' : ''}`} onClick={() => setTab('daily')}>
-            <CheckSquare size={14} /> Daily
-          </button>
-          <button className={`cl-tab ${tab === 'configure' ? 'active' : ''}`} onClick={() => setTab('configure')}>
-            <Settings2 size={14} /> Configure
-          </button>
+        <div>
+          <h1 className="cl-title">Checklists</h1>
+        </div>
+        <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+          {restaurants.length > 0 && (
+            <select
+              className="select"
+              style={{ width: 220 }}
+              value={selectedRestaurant}
+              onChange={(e) => setSelectedRestaurant(e.target.value)}
+            >
+              {restaurants.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name}
+                </option>
+              ))}
+            </select>
+          )}
+          <div className="cl-tabs">
+            <button className={`cl-tab ${tab === 'daily' ? 'active' : ''}`} onClick={() => setTab('daily')}>
+              <CheckSquare size={14} /> Daily
+            </button>
+            <button className={`cl-tab ${tab === 'configure' ? 'active' : ''}`} onClick={() => setTab('configure')}>
+              <Settings2 size={14} /> Configure
+            </button>
+          </div>
         </div>
       </div>
-      {tab === 'daily' ? <DailyView /> : <ConfigureView />}
+      {tab === 'daily' ? (
+        <DailyView selectedRestaurant={selectedRestaurant} />
+      ) : (
+        <ConfigureView selectedRestaurant={selectedRestaurant} />
+      )}
     </div>
   );
 }

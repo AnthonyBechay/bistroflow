@@ -6,18 +6,27 @@ import SettingsBranches from './SettingsBranches';
 import SettingsPendingRequests from './SettingsPendingRequests';
 import './Settings.css';
 
-type Tab = 'data' | 'users' | 'branches' | 'requests';
+type Tab = 'branches' | 'data' | 'users' | 'requests';
 
 const TABS: { key: Tab; label: string; icon: any; desc: string }[] = [
+  { key: 'branches', label: 'Branches & Locations', icon: Building2, desc: 'Add and manage restaurant branches and locations' },
   { key: 'data', label: 'Data Management', icon: Database, desc: 'Suppliers, storage, categories, and tags' },
   { key: 'users', label: 'User Management', icon: Shield, desc: 'Employee accounts and access' },
-  { key: 'branches', label: 'Branches & Locations', icon: Building2, desc: 'Add and manage restaurant branches and locations' },
   { key: 'requests', label: 'Pending Approvals', icon: Clock, desc: 'Approve or deny employee shift swaps and time-off requests' },
 ];
 
 export default function Settings() {
-  const [tab, setTab] = useState<Tab>('data');
+  const [tab, setTab] = useState<Tab>(() => {
+    const saved = localStorage.getItem('settingsActiveTab') as Tab;
+    return (saved && ['branches', 'data', 'users', 'requests'].includes(saved)) ? saved : 'branches';
+  });
+  
   const current = TABS.find((t) => t.key === tab)!;
+
+  const handleTabChange = (newTab: Tab) => {
+    setTab(newTab);
+    localStorage.setItem('settingsActiveTab', newTab);
+  };
 
   return (
     <div>
@@ -33,7 +42,7 @@ export default function Settings() {
           <button
             key={t.key}
             className={`settings-tab ${tab === t.key ? 'active' : ''}`}
-            onClick={() => setTab(t.key)}
+            onClick={() => handleTabChange(t.key)}
           >
             <t.icon size={16} />
             <span>{t.label}</span>
@@ -42,9 +51,9 @@ export default function Settings() {
       </div>
 
       <div className="settings-tab-body">
+        {tab === 'branches' && <SettingsBranches />}
         {tab === 'data' && <SettingsDataManagement />}
         {tab === 'users' && <SettingsUsers />}
-        {tab === 'branches' && <SettingsBranches />}
         {tab === 'requests' && <SettingsPendingRequests />}
       </div>
     </div>

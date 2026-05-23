@@ -118,6 +118,8 @@ async function compressImage(file: File, maxDim = 1600, quality = 0.75): Promise
 
 export default function Traceability() {
   const [receipts, setReceipts] = useState<Receipt[]>([]);
+  const [restaurants, setRestaurants] = useState<any[]>([]);
+  const [selectedRestaurant, setSelectedRestaurant] = useState<string>('');
   const [loading, setLoading] = useState(true);
   // captureProgress: null = idle, {current, total} = in progress
   const [captureProgress, setCaptureProgress] = useState<{ current: number; total: number } | null>(null);
@@ -148,12 +150,26 @@ export default function Traceability() {
 
   const capturing = captureProgress !== null;
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    api.get('/restaurants').then(data => {
+      setRestaurants(data);
+      if (data.length > 0) {
+        setSelectedRestaurant(data[0].id);
+      }
+    }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (selectedRestaurant || restaurants.length === 0) {
+      load();
+    }
+  }, [selectedRestaurant]);
 
   const load = async () => {
     setLoading(true);
     try {
-      const data = await api.get('/traceability');
+      const q = selectedRestaurant ? `?restaurantId=${selectedRestaurant}` : '';
+      const data = await api.get(`/traceability${q}`);
       setReceipts(data);
     } catch (err) {
       console.error(err);
@@ -169,6 +185,9 @@ export default function Traceability() {
     // Append as JPEG; keep a reasonable filename
     const fname = file.name.replace(/\.[^.]+$/, '.jpg') || 'receipt.jpg';
     fd.append('photo', compressed, fname);
+    if (selectedRestaurant) {
+      fd.append('restaurantId', selectedRestaurant);
+    }
 
     const token = localStorage.getItem('token');
     const apiBase = (import.meta as any).env.VITE_API_URL || '/api';
@@ -343,6 +362,20 @@ export default function Traceability() {
           <h1 className="tr-title"><ScanLine size={28} /> Traceability</h1>
           <p className="tr-subtitle">Snap a receipt — we'll file it for you.</p>
         </div>
+        {restaurants.length > 0 && (
+          <select
+            className="select"
+            style={{ width: 220 }}
+            value={selectedRestaurant}
+            onChange={(e) => setSelectedRestaurant(e.target.value)}
+          >
+            {restaurants.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.name}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
       {/* ── Big capture card ── */}

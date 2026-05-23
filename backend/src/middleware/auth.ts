@@ -1,5 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
+
 
 const JWT_SECRET = process.env.JWT_SECRET || 'byhadmade-jwt-secret-change-me';
 
@@ -119,4 +123,43 @@ export function menuScope(
   const allowed = req.allowedMenuIds || [];
   if (allowed.length === 0) return {};
   return { [field]: { in: allowed } };
+}
+
+/** Middleware: require user to be a manager/owner or sub-account with a manager role. */
+export async function requireManager(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    if (!req.subAccountId) {
+      next(); // owner is manager
+      return;
+    }
+    const sub = await prisma.subAccount.findUnique({
+      where: { id: req.subAccountId },
+      select: { email: true },
+    });
+    if (!sub) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+    const employee = await prisma.employee.findFirst({
+      where: {
+        email: sub.email,
+        restaurant: { userId: req.userId! },
+        isActive: true,
+      },
+    });
+    // Treat general sub-account as manager
+    if (!employee) {
+      next();
+      return;
+    }
+    // Employee must have 'manager' in their role (case-insensitive)
+    const isMgr = (employee.role || '').toLowerCase().includes('manager');
+    if (!isMgr) {
+      res.status(403).json({ error: 'Manager account required' });
+      return;
+    }
+    next();
+  } catch (error) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
 }

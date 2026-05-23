@@ -228,6 +228,9 @@ model Restaurant {
   employees  Employee[]
   schedules  Schedule[]
   orders     Order[]
+  receipts   Receipt[]
+  checklistTemplates ChecklistTemplate[]
+  checklistRuns ChecklistRun[]
   createdAt  DateTime   @default(now())
   updatedAt  DateTime   @updatedAt
 }
@@ -375,6 +378,8 @@ model Receipt {
   id            String         @id @default(cuid())
   userId        String
   user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  restaurantId  String?
+  restaurant    Restaurant?    @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   receivedAt    DateTime       @default(now()) // when the chef received it (date + time, editable)
   supplier      String?
   total         Float?
@@ -420,6 +425,8 @@ model ChecklistTemplate {
   id        String                 @id @default(cuid())
   userId    String
   user      User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  restaurantId String?
+  restaurant   Restaurant?             @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   name      String
   type      ChecklistType          @default(CUSTOM)
   theme     String?                // e.g. "Kitchen", "Floor", "Second Floor"
@@ -450,6 +457,8 @@ model ChecklistRun {
   template   ChecklistTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
   userId     String
   user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  restaurantId String?
+  restaurant   Restaurant?             @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   date       DateTime         // midnight UTC of the day this run belongs to
   items      ChecklistRunItem[]
   createdAt  DateTime         @default(now())

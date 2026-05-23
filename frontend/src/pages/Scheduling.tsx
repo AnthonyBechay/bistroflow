@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, CalendarDays, Users, Building2, Trash2, Edit3, Copy, X, Check, Upload, DollarSign, ClipboardCopy } from 'lucide-react';
+import { Plus, CalendarDays, Users, Trash2, Edit3, Copy, ClipboardCopy } from 'lucide-react';
 import { api } from '../lib/api';
 import Modal from '../components/Modal';
 import './Scheduling.css';
@@ -18,6 +18,7 @@ export default function Scheduling() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [selectedRestaurant, setSelectedRestaurant] = useState('');
+  const [me, setMe] = useState<any>(null);
 
   const [showEmpModal, setShowEmpModal] = useState(false);
   const [showSchedModal, setShowSchedModal] = useState(false);
@@ -27,6 +28,8 @@ export default function Scheduling() {
   const [schedError, setSchedError] = useState('');
   const [copyFromSchedules, setCopyFromSchedules] = useState<Schedule[]>([]);
 
+  const isManager = me?.role === 'owner' || !me?.employee || (me?.employee?.role || '').toLowerCase().includes('manager');
+
   const load = () => {
     api.get('/restaurants').then(setRestaurants).catch(() => {});
     const empQ = selectedRestaurant ? `?restaurantId=${selectedRestaurant}` : '';
@@ -35,12 +38,15 @@ export default function Scheduling() {
     api.get(`/schedules${schedQ}`).then(setSchedules).catch(() => {});
   };
 
+  useEffect(() => {
+    api.get('/auth/me').then(setMe).catch(() => {});
+  }, []);
+
   useEffect(() => { load(); }, [selectedRestaurant]);
-
-
 
   const handleCreateEmployee = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isManager) return;
     const data = {
       ...empForm,
       hourlyRate: empForm.hourlyRate ? parseFloat(empForm.hourlyRate) : null,
@@ -57,6 +63,7 @@ export default function Scheduling() {
   };
 
   const openEditEmp = (emp: Employee) => {
+    if (!isManager) return;
     setEditingEmp(emp);
     setEmpForm({
       name: emp.name,
@@ -77,15 +84,14 @@ export default function Scheduling() {
 
   const handleCreateSchedule = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isManager) return;
     try {
       let schedule;
       if (schedForm.copyFromId) {
-        // Duplicate from existing schedule
         schedule = await api.post(`/schedules/${schedForm.copyFromId}/duplicate`, {
           weekStart: new Date(schedForm.weekStart).toISOString(),
         });
       } else {
-        // Create blank schedule
         schedule = await api.post('/schedules', {
           weekStart: new Date(schedForm.weekStart).toISOString(),
           restaurantId: schedForm.restaurantId,
@@ -104,10 +110,9 @@ export default function Scheduling() {
     }
   };
 
-  // Snap date input to Monday of the selected week
   const handleWeekDateChange = (dateStr: string) => {
     const date = new Date(dateStr);
-    const day = date.getDay(); // 0=Sun, 1=Mon...
+    const day = date.getDay();
     const diffToMonday = day === 0 ? -6 : 1 - day;
     date.setDate(date.getDate() + diffToMonday);
     const yyyy = date.getFullYear();
@@ -125,6 +130,7 @@ export default function Scheduling() {
   };
 
   const handleDuplicate = (sched: Schedule) => {
+    if (!isManager) return;
     setSchedForm({ weekStart: '', restaurantId: sched.restaurant.id, copyFromId: sched.id });
     setSchedError('');
     loadCopyFromSchedules(sched.restaurant.id);
@@ -145,6 +151,36 @@ export default function Scheduling() {
     return ids.size;
   };
 
+  const getYYYYMMDD = (d: Date) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${dd}`;
+  };
+
+  const getFilteredSchedules = () => {
+    if (isManager) return schedules;
+
+    const now = new Date();
+    const day = now.getDay();
+    const diffToMonday = day === 0 ? -6 : 1 - day;
+    
+    const thisWeekMonday = new Date(now);
+    thisWeekMonday.setDate(now.getDate() + diffToMonday);
+    const thisWeekStr = getYYYYMMDD(thisWeekMonday);
+    
+    const nextWeekMonday = new Date(thisWeekMonday);
+    nextWeekMonday.setDate(thisWeekMonday.getDate() + 7);
+    const nextWeekStr = getYYYYMMDD(nextWeekMonday);
+    
+    return schedules.filter(sched => {
+      const schedStr = sched.weekStart.slice(0, 10);
+      return schedStr === thisWeekStr || schedStr === nextWeekStr;
+    });
+  };
+
+  const filteredSchedules = getFilteredSchedules();
+
   return (
     <div>
       <div className="page-header">
@@ -152,10 +188,12 @@ export default function Scheduling() {
           <h1 className="page-title">Scheduling</h1>
           <p className="page-subtitle">Manage employees and weekly schedules</p>
         </div>
-        <div style={{ display: 'flex', gap: 10 }}>
-          {tab === 'employees' && <button className="btn btn-primary" onClick={() => { setEditingEmp(null); setEmpForm({ name: '', role: '', phone: '', email: '', color: COLORS[Math.floor(Math.random() * COLORS.length)], hourlyRate: '', restaurantId: selectedRestaurant || (restaurants[0]?.id || '') }); setShowEmpModal(true); }}><Plus size={18} /> Add Employee</button>}
-          {tab === 'schedules' && <button className="btn btn-primary" onClick={() => { const restId = selectedRestaurant || (restaurants[0]?.id || ''); setSchedForm({ weekStart: '', restaurantId: restId, copyFromId: '' }); loadCopyFromSchedules(restId); setShowSchedModal(true); }}><Plus size={18} /> New Schedule</button>}
-        </div>
+        {isManager && (
+          <div style={{ display: 'flex', gap: 10 }}>
+            {tab === 'employees' && <button className="btn btn-primary" onClick={() => { setEditingEmp(null); setEmpForm({ name: '', role: '', phone: '', email: '', color: COLORS[Math.floor(Math.random() * COLORS.length)], hourlyRate: '', restaurantId: selectedRestaurant || (restaurants[0]?.id || '') }); setShowEmpModal(true); }}><Plus size={18} /> Add Employee</button>}
+            {tab === 'schedules' && <button className="btn btn-primary" onClick={() => { const restId = selectedRestaurant || (restaurants[0]?.id || ''); setSchedForm({ weekStart: '', restaurantId: restId, copyFromId: '' }); loadCopyFromSchedules(restId); setShowSchedModal(true); }}><Plus size={18} /> New Schedule</button>}
+          </div>
+        )}
       </div>
 
       <div className="scheduling-tabs">
@@ -174,16 +212,18 @@ export default function Scheduling() {
 
       {/* Schedules Tab */}
       {tab === 'schedules' && (
-        schedules.length === 0 ? (
+        filteredSchedules.length === 0 ? (
           <div className="empty-state">
             <CalendarDays size={48} />
             <h3>No schedules yet</h3>
             <p>Create a weekly schedule for your team</p>
-            <button className="btn btn-primary" onClick={() => { const restId = selectedRestaurant || (restaurants[0]?.id || ''); setSchedForm({ weekStart: '', restaurantId: restId, copyFromId: '' }); loadCopyFromSchedules(restId); setShowSchedModal(true); }}><Plus size={18} /> Create Schedule</button>
+            {isManager && (
+              <button className="btn btn-primary" onClick={() => { const restId = selectedRestaurant || (restaurants[0]?.id || ''); setSchedForm({ weekStart: '', restaurantId: restId, copyFromId: '' }); loadCopyFromSchedules(restId); setShowSchedModal(true); }}><Plus size={18} /> Create Schedule</button>
+            )}
           </div>
         ) : (
           <div className="schedule-list">
-            {schedules.map(sched => (
+            {filteredSchedules.map(sched => (
               <div key={sched.id} className="schedule-list-item" onClick={() => navigate(`/app/scheduling/${sched.id}`)}>
                 <div className="schedule-list-dates">
                   <span className="schedule-list-range">{formatDate(sched.weekStart)} - {formatDate(weekEndFromStart(sched.weekStart).toISOString())}</span>
@@ -195,10 +235,12 @@ export default function Scheduling() {
                   <span className="schedule-list-meta">{getUniqueEmployees(sched.shifts)} employees</span>
                   <span className="schedule-list-meta">{sched.shifts.filter((s: any) => s.shiftType === 'WORK').length} work shifts</span>
                 </div>
-                <div className="schedule-list-actions" onClick={e => e.stopPropagation()}>
-                  <button className="btn-icon" title="Duplicate" onClick={() => handleDuplicate(sched)}><Copy size={16} /></button>
-                  <button className="btn-icon" title="Delete" onClick={async () => { if (confirm('Delete schedule and all its shifts?')) { await api.delete(`/schedules/${sched.id}`); load(); } }}><Trash2 size={16} /></button>
-                </div>
+                {isManager && (
+                  <div className="schedule-list-actions" onClick={e => e.stopPropagation()}>
+                    <button className="btn-icon" title="Duplicate" onClick={() => handleDuplicate(sched)}><Copy size={16} /></button>
+                    <button className="btn-icon" title="Delete" onClick={async () => { if (confirm('Delete schedule and all its shifts?')) { await api.delete(`/schedules/${sched.id}`); load(); } }}><Trash2 size={16} /></button>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -212,7 +254,9 @@ export default function Scheduling() {
             <Users size={48} />
             <h3>No employees yet</h3>
             <p>Add employees to start building schedules</p>
-            <button className="btn btn-primary" onClick={() => setShowEmpModal(true)}><Plus size={18} /> Add Employee</button>
+            {isManager && (
+              <button className="btn btn-primary" onClick={() => setShowEmpModal(true)}><Plus size={18} /> Add Employee</button>
+            )}
           </div>
         ) : (
           <div className="employee-grid">
@@ -226,10 +270,12 @@ export default function Scheduling() {
                     <strong>{emp.name}</strong>
                     {emp.role && <span className="employee-role">{emp.role}</span>}
                   </div>
-                  <div className="employee-card-actions">
-                    <button className="btn-icon" onClick={() => openEditEmp(emp)}><Edit3 size={14} /></button>
-                    <button className="btn-icon" onClick={async () => { if (confirm('Delete employee?')) { await api.delete(`/employees/${emp.id}`); load(); } }}><Trash2 size={14} /></button>
-                  </div>
+                  {isManager && (
+                    <div className="employee-card-actions">
+                      <button className="btn-icon" onClick={() => openEditEmp(emp)}><Edit3 size={14} /></button>
+                      <button className="btn-icon" onClick={async () => { if (confirm('Delete employee?')) { await api.delete(`/employees/${emp.id}`); load(); } }}><Trash2 size={14} /></button>
+                    </div>
+                  )}
                 </div>
                 <div className="employee-card-details">
                   <span>{emp.restaurant.name}</span>
@@ -243,123 +289,125 @@ export default function Scheduling() {
         )
       )}
 
-
-
       {/* Employee Modal */}
-      <Modal isOpen={showEmpModal} onClose={() => { setShowEmpModal(false); setEditingEmp(null); }} title={editingEmp ? 'Edit Employee' : 'Add Employee'}>
-        <form onSubmit={handleCreateEmployee}>
-          {!editingEmp && (
+      {isManager && (
+        <Modal isOpen={showEmpModal} onClose={() => { setShowEmpModal(false); setEditingEmp(null); }} title={editingEmp ? 'Edit Employee' : 'Add Employee'}>
+          <form onSubmit={handleCreateEmployee}>
+            {!editingEmp && (
+              <div className="form-group">
+                <label className="label">Restaurant *</label>
+                <select className="select" value={empForm.restaurantId} onChange={e => setEmpForm({ ...empForm, restaurantId: e.target.value })} required>
+                  <option value="">Select...</option>
+                  {restaurants.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                </select>
+              </div>
+            )}
+            <div className="form-group">
+              <label className="label">Name *</label>
+              <input className="input" value={empForm.name} onChange={e => setEmpForm({ ...empForm, name: e.target.value })} required />
+            </div>
+            <div className="form-row">
+              <div className="form-group">
+                <label className="label">Role</label>
+                <input className="input" value={empForm.role} onChange={e => setEmpForm({ ...empForm, role: e.target.value })} placeholder="Chef, Waiter, etc." />
+              </div>
+              <div className="form-group">
+                <label className="label">Hourly Rate ($)</label>
+                <input className="input" type="number" step="0.01" value={empForm.hourlyRate} onChange={e => setEmpForm({ ...empForm, hourlyRate: e.target.value })} />
+              </div>
+            </div>
+            <div className="form-row">
+              <div className="form-group">
+                <label className="label">Phone</label>
+                <input className="input" value={empForm.phone} onChange={e => setEmpForm({ ...empForm, phone: e.target.value })} />
+              </div>
+              <div className="form-group">
+                <label className="label">Email</label>
+                <input className="input" type="email" value={empForm.email} onChange={e => setEmpForm({ ...empForm, email: e.target.value })} />
+              </div>
+            </div>
+            <div className="form-group">
+              <label className="label">Color</label>
+              <div className="color-picker">
+                {COLORS.map(c => (
+                  <button
+                    key={c}
+                    type="button"
+                    className={`color-swatch ${empForm.color === c ? 'active' : ''}`}
+                    style={{ background: c }}
+                    onClick={() => setEmpForm({ ...empForm, color: c })}
+                  />
+                ))}
+              </div>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+              <button type="button" className="btn btn-secondary" onClick={() => { setShowEmpModal(false); setEditingEmp(null); }}>Cancel</button>
+              <button type="submit" className="btn btn-primary">{editingEmp ? 'Update' : 'Add'} Employee</button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* Schedule Modal */}
+      {isManager && (
+        <Modal isOpen={showSchedModal} onClose={() => { setShowSchedModal(false); setSchedError(''); setSchedForm({ weekStart: '', restaurantId: '', copyFromId: '' }); setCopyFromSchedules([]); }} title="New Schedule">
+          <form onSubmit={handleCreateSchedule}>
             <div className="form-group">
               <label className="label">Restaurant *</label>
-              <select className="select" value={empForm.restaurantId} onChange={e => setEmpForm({ ...empForm, restaurantId: e.target.value })} required>
+              <select className="select" value={schedForm.restaurantId} onChange={e => { setSchedForm({ ...schedForm, restaurantId: e.target.value, copyFromId: '' }); loadCopyFromSchedules(e.target.value); }} required>
                 <option value="">Select...</option>
                 {restaurants.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
               </select>
             </div>
-          )}
-          <div className="form-group">
-            <label className="label">Name *</label>
-            <input className="input" value={empForm.name} onChange={e => setEmpForm({ ...empForm, name: e.target.value })} required />
-          </div>
-          <div className="form-row">
             <div className="form-group">
-              <label className="label">Role</label>
-              <input className="input" value={empForm.role} onChange={e => setEmpForm({ ...empForm, role: e.target.value })} placeholder="Chef, Waiter, etc." />
-            </div>
-            <div className="form-group">
-              <label className="label">Hourly Rate ($)</label>
-              <input className="input" type="number" step="0.01" value={empForm.hourlyRate} onChange={e => setEmpForm({ ...empForm, hourlyRate: e.target.value })} />
-            </div>
-          </div>
-          <div className="form-row">
-            <div className="form-group">
-              <label className="label">Phone</label>
-              <input className="input" value={empForm.phone} onChange={e => setEmpForm({ ...empForm, phone: e.target.value })} />
-            </div>
-            <div className="form-group">
-              <label className="label">Email</label>
-              <input className="input" type="email" value={empForm.email} onChange={e => setEmpForm({ ...empForm, email: e.target.value })} />
-            </div>
-          </div>
-          <div className="form-group">
-            <label className="label">Color</label>
-            <div className="color-picker">
-              {COLORS.map(c => (
-                <button
-                  key={c}
-                  type="button"
-                  className={`color-swatch ${empForm.color === c ? 'active' : ''}`}
-                  style={{ background: c }}
-                  onClick={() => setEmpForm({ ...empForm, color: c })}
-                />
-              ))}
-            </div>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
-            <button type="button" className="btn btn-secondary" onClick={() => { setShowEmpModal(false); setEditingEmp(null); }}>Cancel</button>
-            <button type="submit" className="btn btn-primary">{editingEmp ? 'Update' : 'Add'} Employee</button>
-          </div>
-        </form>
-      </Modal>
-
-      {/* Schedule Modal */}
-      <Modal isOpen={showSchedModal} onClose={() => { setShowSchedModal(false); setSchedError(''); setSchedForm({ weekStart: '', restaurantId: '', copyFromId: '' }); setCopyFromSchedules([]); }} title="New Schedule">
-        <form onSubmit={handleCreateSchedule}>
-          <div className="form-group">
-            <label className="label">Restaurant *</label>
-            <select className="select" value={schedForm.restaurantId} onChange={e => { setSchedForm({ ...schedForm, restaurantId: e.target.value, copyFromId: '' }); loadCopyFromSchedules(e.target.value); }} required>
-              <option value="">Select...</option>
-              {restaurants.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-            </select>
-          </div>
-          <div className="form-group">
-            <label className="label">Select any day in the week *</label>
-            <input className="input" type="date" value={schedForm.weekStart} onChange={e => handleWeekDateChange(e.target.value)} required />
-            {schedForm.weekStart && (
-              <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 4 }}>
-                Week: {getWeekEndDisplay()}
-              </div>
-            )}
-          </div>
-          {/* Copy from previous schedule */}
-          {schedForm.restaurantId && copyFromSchedules.length > 0 && (
-            <div className="form-group">
-              <label className="label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <ClipboardCopy size={14} /> Copy shifts from previous schedule
-              </label>
-              <select
-                className="select"
-                value={schedForm.copyFromId}
-                onChange={e => setSchedForm({ ...schedForm, copyFromId: e.target.value })}
-              >
-                <option value="">Start blank (no shifts)</option>
-                {copyFromSchedules
-                  .sort((a, b) => new Date(b.weekStart).getTime() - new Date(a.weekStart).getTime())
-                  .slice(0, 5)
-                  .map(s => (
-                    <option key={s.id} value={s.id}>
-                      {formatDate(s.weekStart)} - {formatDate(weekEndFromStart(s.weekStart).toISOString())} ({s.shifts.filter((sh: any) => sh.shiftType === 'WORK').length} work shifts, {s.published ? 'Published' : 'Draft'})
-                    </option>
-                  ))}
-              </select>
-              {schedForm.copyFromId && (
-                <div style={{ fontSize: 12, color: 'var(--color-primary)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <Copy size={12} /> All shifts will be copied to the new week. You can then edit them.
+              <label className="label">Select any day in the week *</label>
+              <input className="input" type="date" value={schedForm.weekStart} onChange={e => handleWeekDateChange(e.target.value)} required />
+              {schedForm.weekStart && (
+                <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 4 }}>
+                  Week: {getWeekEndDisplay()}
                 </div>
               )}
             </div>
-          )}
-          {schedError && (
-            <div style={{ fontSize: 13, color: '#e05555', marginBottom: 12, padding: '8px 12px', background: 'rgba(224, 85, 85, 0.08)', borderRadius: 6 }}>
-              {schedError}
+            {/* Copy from previous schedule */}
+            {schedForm.restaurantId && copyFromSchedules.length > 0 && (
+              <div className="form-group">
+                <label className="label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <ClipboardCopy size={14} /> Copy shifts from previous schedule
+                </label>
+                <select
+                  className="select"
+                  value={schedForm.copyFromId}
+                  onChange={e => setSchedForm({ ...schedForm, copyFromId: e.target.value })}
+                >
+                  <option value="">Start blank (no shifts)</option>
+                  {copyFromSchedules
+                    .sort((a, b) => new Date(b.weekStart).getTime() - new Date(a.weekStart).getTime())
+                    .slice(0, 5)
+                    .map(s => (
+                      <option key={s.id} value={s.id}>
+                        {formatDate(s.weekStart)} - {formatDate(weekEndFromStart(s.weekStart).toISOString())} ({s.shifts.filter((sh: any) => sh.shiftType === 'WORK').length} work shifts, {s.published ? 'Published' : 'Draft'})
+                      </option>
+                    ))}
+                </select>
+                {schedForm.copyFromId && (
+                  <div style={{ fontSize: 12, color: 'var(--color-primary)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <Copy size={12} /> All shifts will be copied to the new week. You can then edit them.
+                  </div>
+                )}
+              </div>
+            )}
+            {schedError && (
+              <div style={{ fontSize: 13, color: '#e05555', marginBottom: 12, padding: '8px 12px', background: 'rgba(224, 85, 85, 0.08)', borderRadius: 6 }}>
+                {schedError}
+              </div>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+              <button type="button" className="btn btn-secondary" onClick={() => { setShowSchedModal(false); setSchedError(''); setSchedForm({ weekStart: '', restaurantId: '', copyFromId: '' }); setCopyFromSchedules([]); }}>Cancel</button>
+              <button type="submit" className="btn btn-primary">{schedForm.copyFromId ? 'Copy & Create' : 'Create Schedule'}</button>
             </div>
-          )}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
-            <button type="button" className="btn btn-secondary" onClick={() => { setShowSchedModal(false); setSchedError(''); setSchedForm({ weekStart: '', restaurantId: '', copyFromId: '' }); setCopyFromSchedules([]); }}>Cancel</button>
-            <button type="submit" className="btn btn-primary">{schedForm.copyFromId ? 'Copy & Create' : 'Create Schedule'}</button>
-          </div>
-        </form>
-      </Modal>
+          </form>
+        </Modal>
+      )}
     </div>
   );
 }

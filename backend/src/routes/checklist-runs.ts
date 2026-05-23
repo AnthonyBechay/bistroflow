@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
-import { authenticate, requireFeature, AuthRequest } from '../middleware/auth';
+import { authenticate, requireFeature, canAccessRestaurant, restaurantScope, AuthRequest } from '../middleware/auth';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -21,10 +21,19 @@ router.get('/', async (req: AuthRequest, res) => {
     const dateStr = (req.query.date as string) || new Date().toISOString().slice(0, 10);
     const date = toDateUTC(dateStr);
     const userId = req.userId!;
+    const { restaurantId } = req.query as { restaurantId?: string };
 
-    // Fetch all active templates for this user
+    const templateWhere: any = { userId, isActive: true };
+    if (restaurantId) {
+      if (!canAccessRestaurant(req, restaurantId)) { res.json([]); return; }
+      templateWhere.restaurantId = restaurantId;
+    } else {
+      Object.assign(templateWhere, restaurantScope(req, 'restaurantId'));
+    }
+
+    // Fetch all active templates for this user/branch
     const templates = await prisma.checklistTemplate.findMany({
-      where: { userId, isActive: true },
+      where: templateWhere,
       include: { items: { orderBy: { order: 'asc' } } },
       orderBy: [{ type: 'asc' }, { sortOrder: 'asc' }, { createdAt: 'asc' }],
     });
@@ -43,6 +52,7 @@ router.get('/', async (req: AuthRequest, res) => {
             data: {
               templateId: template.id,
               userId,
+              restaurantId: template.restaurantId,
               date,
               items: {
                 create: template.items.map((it) => ({
@@ -139,6 +149,10 @@ router.patch('/:runId/items/:itemId', async (req: AuthRequest, res) => {
       where: { id: runId, userId: req.userId! },
     });
     if (!run) { res.status(404).json({ error: 'Run not found' }); return; }
+    if (run.restaurantId && !canAccessRestaurant(req, run.restaurantId)) {
+      res.status(403).json({ error: 'Forbidden' });
+      return;
+    }
 
     const item = await prisma.checklistRunItem.update({
       where: { id: itemId },

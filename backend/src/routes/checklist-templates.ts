@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
-import { authenticate, requireFeature, AuthRequest } from '../middleware/auth';
+import { authenticate, requireFeature, canAccessRestaurant, restaurantScope, AuthRequest } from '../middleware/auth';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -13,8 +13,17 @@ const ITEM_INCLUDE = { orderBy: { order: 'asc' as const } };
 // ─── List all templates (with items) ───
 router.get('/', async (req: AuthRequest, res) => {
   try {
+    const { restaurantId } = req.query as { restaurantId?: string };
+    const where: any = { userId: req.userId! };
+    if (restaurantId) {
+      if (!canAccessRestaurant(req, restaurantId)) { res.json([]); return; }
+      where.restaurantId = restaurantId;
+    } else {
+      Object.assign(where, restaurantScope(req, 'restaurantId'));
+    }
+
     const templates = await prisma.checklistTemplate.findMany({
-      where: { userId: req.userId! },
+      where,
       include: { items: ITEM_INCLUDE },
       orderBy: [{ type: 'asc' }, { sortOrder: 'asc' }, { createdAt: 'asc' }],
     });
@@ -27,8 +36,17 @@ router.get('/', async (req: AuthRequest, res) => {
 // ─── List unique themes used by this user ───
 router.get('/themes', async (req: AuthRequest, res) => {
   try {
+    const { restaurantId } = req.query as { restaurantId?: string };
+    const where: any = { userId: req.userId!, theme: { not: null } };
+    if (restaurantId) {
+      if (!canAccessRestaurant(req, restaurantId)) { res.json([]); return; }
+      where.restaurantId = restaurantId;
+    } else {
+      Object.assign(where, restaurantScope(req, 'restaurantId'));
+    }
+
     const rows = await prisma.checklistTemplate.findMany({
-      where: { userId: req.userId!, theme: { not: null } },
+      where,
       select: { theme: true },
       distinct: ['theme'],
       orderBy: { theme: 'asc' },
@@ -42,12 +60,17 @@ router.get('/themes', async (req: AuthRequest, res) => {
 // ─── Create template ───
 router.post('/', async (req: AuthRequest, res) => {
   try {
-    const { name, type, theme, isActive, sortOrder, items } = req.body;
+    const { name, type, theme, isActive, sortOrder, items, restaurantId } = req.body;
     if (!name) { res.status(400).json({ error: 'Name is required' }); return; }
+    if (restaurantId && !canAccessRestaurant(req, restaurantId)) {
+      res.status(403).json({ error: 'Forbidden' });
+      return;
+    }
 
     const template = await prisma.checklistTemplate.create({
       data: {
         userId: req.userId!,
+        restaurantId: restaurantId || null,
         name,
         type: type || 'CUSTOM',
         theme: theme || null,
@@ -78,14 +101,24 @@ router.put('/:id', async (req: AuthRequest, res) => {
       where: { id, userId: req.userId! },
     });
     if (!existing) { res.status(404).json({ error: 'Template not found' }); return; }
+    if (existing.restaurantId && !canAccessRestaurant(req, existing.restaurantId)) {
+      res.status(403).json({ error: 'Forbidden' });
+      return;
+    }
 
-    const { name, type, theme, isActive, sortOrder, items } = req.body;
+    const { name, type, theme, isActive, sortOrder, items, restaurantId } = req.body;
+    if (restaurantId && !canAccessRestaurant(req, restaurantId)) {
+      res.status(403).json({ error: 'Forbidden' });
+      return;
+    }
+
     const data: any = {};
     if (name !== undefined) data.name = name;
     if (type !== undefined) data.type = type;
     if (theme !== undefined) data.theme = theme || null;
     if (isActive !== undefined) data.isActive = !!isActive;
     if (sortOrder !== undefined) data.sortOrder = sortOrder;
+    if (restaurantId !== undefined) data.restaurantId = restaurantId || null;
 
     // Replace items if provided
     if (Array.isArray(items)) {
@@ -119,6 +152,11 @@ router.delete('/:id', async (req: AuthRequest, res) => {
       where: { id, userId: req.userId! },
     });
     if (!existing) { res.status(404).json({ error: 'Template not found' }); return; }
+    if (existing.restaurantId && !canAccessRestaurant(req, existing.restaurantId)) {
+      res.status(403).json({ error: 'Forbidden' });
+      return;
+    }
+
     await prisma.checklistTemplate.delete({ where: { id } });
     res.json({ success: true });
   } catch {

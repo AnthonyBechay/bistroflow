@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
-import { authenticate, requireFeature, canAccessRestaurant, restaurantScope, AuthRequest } from '../middleware/auth';
+import { authenticate, requireFeature, canAccessRestaurant, restaurantScope, AuthRequest, requireManager } from '../middleware/auth';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -300,7 +300,7 @@ router.get('/report/:restaurantId', async (req: AuthRequest, res) => {
   }
 });
 
-router.post('/', async (req: AuthRequest, res) => {
+router.post('/', requireManager, async (req: AuthRequest, res) => {
   try {
     const { weekStart, restaurantId, notes } = req.body;
     if (!canAccessRestaurant(req, restaurantId)) { res.status(404).json({ error: 'Restaurant not found' }); return; }
@@ -333,7 +333,7 @@ router.post('/', async (req: AuthRequest, res) => {
   }
 });
 
-router.post('/:id/duplicate', async (req: AuthRequest, res) => {
+router.post('/:id/duplicate', requireManager, async (req: AuthRequest, res) => {
   try {
     const { weekStart } = req.body;
     const source = await prisma.schedule.findFirst({
@@ -372,7 +372,7 @@ router.post('/:id/duplicate', async (req: AuthRequest, res) => {
   }
 });
 
-router.put('/:id', async (req: AuthRequest, res) => {
+router.put('/:id', requireManager, async (req: AuthRequest, res) => {
   try {
     const { published, notes } = req.body;
     const existing = await prisma.schedule.findFirst({ where: { id: req.params.id as string, restaurant: { userId: req.userId! } } });
@@ -390,7 +390,7 @@ router.put('/:id', async (req: AuthRequest, res) => {
   }
 });
 
-router.delete('/:id', async (req: AuthRequest, res) => {
+router.delete('/:id', requireManager, async (req: AuthRequest, res) => {
   try {
     const existing = await prisma.schedule.findFirst({ where: { id: req.params.id as string, restaurant: { userId: req.userId! } } });
     if (!existing) { res.status(404).json({ error: 'Schedule not found' }); return; }
@@ -403,7 +403,7 @@ router.delete('/:id', async (req: AuthRequest, res) => {
 });
 
 // ─── Employee order management ───
-router.put('/:id/employee-order', async (req: AuthRequest, res) => {
+router.put('/:id/employee-order', requireManager, async (req: AuthRequest, res) => {
   try {
     const sched = await prisma.schedule.findFirst({ where: { id: req.params.id as string, restaurant: { userId: req.userId! } } });
     if (!sched) { res.status(404).json({ error: 'Schedule not found' }); return; }
@@ -426,7 +426,7 @@ router.put('/:id/employee-order', async (req: AuthRequest, res) => {
 });
 
 // Delete all shifts for an employee in a schedule
-router.delete('/:id/employee/:employeeId/shifts', async (req: AuthRequest, res) => {
+router.delete('/:id/employee/:employeeId/shifts', requireManager, async (req: AuthRequest, res) => {
   try {
     const sched = await prisma.schedule.findFirst({ where: { id: req.params.id as string, restaurant: { userId: req.userId! } } });
     if (!sched) { res.status(404).json({ error: 'Schedule not found' }); return; }
@@ -449,7 +449,7 @@ function timesOverlap(start1: string, end1: string, start2: string, end2: string
 }
 
 // Shift management - verify via schedule -> restaurant -> user
-router.post('/:id/shifts', async (req: AuthRequest, res) => {
+router.post('/:id/shifts', requireManager, async (req: AuthRequest, res) => {
   try {
     const sched = await prisma.schedule.findFirst({ where: { id: req.params.id as string, restaurant: { userId: req.userId! } } });
     if (!sched) { res.status(404).json({ error: 'Schedule not found' }); return; }
@@ -472,7 +472,7 @@ router.post('/:id/shifts', async (req: AuthRequest, res) => {
   }
 });
 
-router.post('/:id/shifts/bulk', async (req: AuthRequest, res) => {
+router.post('/:id/shifts/bulk', requireManager, async (req: AuthRequest, res) => {
   try {
     const sched = await prisma.schedule.findFirst({ where: { id: req.params.id as string, restaurant: { userId: req.userId! } } });
     if (!sched) { res.status(404).json({ error: 'Schedule not found' }); return; }
@@ -499,7 +499,7 @@ router.post('/:id/shifts/bulk', async (req: AuthRequest, res) => {
   }
 });
 
-router.put('/shifts/:shiftId', async (req: AuthRequest, res) => {
+router.put('/shifts/:shiftId', requireManager, async (req: AuthRequest, res) => {
   try {
     const { dayOfWeek, startTime, endTime, shiftType, notes, breakMinutes } = req.body;
     const current = await prisma.shift.findFirst({
@@ -531,7 +531,7 @@ router.put('/shifts/:shiftId', async (req: AuthRequest, res) => {
   }
 });
 
-router.delete('/shifts/:shiftId', async (req: AuthRequest, res) => {
+router.delete('/shifts/:shiftId', requireManager, async (req: AuthRequest, res) => {
   try {
     const shift = await prisma.shift.findFirst({
       where: { id: req.params.shiftId as string, schedule: { restaurant: { userId: req.userId! } } },
@@ -547,7 +547,7 @@ router.delete('/shifts/:shiftId', async (req: AuthRequest, res) => {
 });
 
 // ─── Manager Request Approvals ───
-router.get('/pending-requests', async (req: AuthRequest, res) => {
+router.get('/pending-requests', requireManager, async (req: AuthRequest, res) => {
   try {
     const { restaurantId } = req.query;
     
@@ -616,7 +616,7 @@ router.get('/pending-requests', async (req: AuthRequest, res) => {
   }
 });
 
-router.post('/swaps/:id/approve', async (req: AuthRequest, res) => {
+router.post('/swaps/:id/approve', requireManager, async (req: AuthRequest, res) => {
   try {
     const swap = await prisma.shiftSwap.findUnique({
       where: { id: req.params.id as string },
@@ -659,7 +659,7 @@ router.post('/swaps/:id/approve', async (req: AuthRequest, res) => {
   }
 });
 
-router.post('/swaps/:id/deny', async (req: AuthRequest, res) => {
+router.post('/swaps/:id/deny', requireManager, async (req: AuthRequest, res) => {
   try {
     const swap = await prisma.shiftSwap.findUnique({
       where: { id: req.params.id as string },
@@ -689,7 +689,7 @@ router.post('/swaps/:id/deny', async (req: AuthRequest, res) => {
   }
 });
 
-router.post('/time-off/:id/approve', async (req: AuthRequest, res) => {
+router.post('/time-off/:id/approve', requireManager, async (req: AuthRequest, res) => {
   try {
     const request = await prisma.timeOffRequest.findUnique({
       where: { id: req.params.id as string },
@@ -719,7 +719,7 @@ router.post('/time-off/:id/approve', async (req: AuthRequest, res) => {
   }
 });
 
-router.post('/time-off/:id/deny', async (req: AuthRequest, res) => {
+router.post('/time-off/:id/deny', requireManager, async (req: AuthRequest, res) => {
   try {
     const request = await prisma.timeOffRequest.findUnique({
       where: { id: req.params.id as string },

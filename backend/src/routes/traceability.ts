@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
 import multer from 'multer';
 import path from 'path';
-import { authenticate, requireFeature, AuthRequest } from '../middleware/auth';
+import { authenticate, requireFeature, canAccessRestaurant, restaurantScope, AuthRequest } from '../middleware/auth';
 import { uploadToR2, deleteFromR2 } from '../lib/r2';
 import { extractReceiptFromImage } from '../lib/receipt-extract';
 
@@ -11,7 +11,6 @@ const prisma = new PrismaClient();
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  // 10 MB per file (frontend compresses before upload, so in practice ~500 KB)
   limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     if (file.mimetype.startsWith('image/')) cb(null, true);
@@ -32,11 +31,19 @@ async function getUserSlug(userId: string): Promise<string> {
     .replace(/(^-|-$)/g, '');
 }
 
-// ─── List receipts (optionally filter by date range) ───
+// ─── List receipts (optionally filter by date range or branch) ───
 router.get('/', async (req: AuthRequest, res) => {
   try {
-    const { from, to } = req.query as { from?: string; to?: string };
+    const { from, to, restaurantId } = req.query as { from?: string; to?: string; restaurantId?: string };
     const where: any = { userId: req.userId! };
+    
+    if (restaurantId) {
+      if (!canAccessRestaurant(req, restaurantId)) { res.json([]); return; }
+      where.restaurantId = restaurantId;
+    } else {
+      Object.assign(where, restaurantScope(req, 'restaurantId'));
+    }
+
     if (from || to) {
       where.receivedAt = {};
       if (from) where.receivedAt.gte = new Date(from);
@@ -62,20 +69,26 @@ router.get('/:id', async (req: AuthRequest, res) => {
       include: { items: true },
     });
     if (!receipt) { res.status(404).json({ error: 'Receipt not found' }); return; }
+    if (receipt.restaurantId && !canAccessRestaurant(req, receipt.restaurantId)) {
+      res.status(403).json({ error: 'Forbidden' });
+      return;
+    }
     res.json(receipt);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch receipt' });
   }
 });
 
-// ─── Capture receipt(s): upload photo → extract via AI → create ───
-// Accepts 1..N photos as field "photo" (single) or "photos" (multiple).
-// Processes each sequentially (AI extraction for every file).
-// Returns a Receipt[] — even for a single file.
 router.post('/', upload.single('photo'), async (req: AuthRequest, res) => {
   try {
     const file = req.file;
     if (!file) { res.status(400).json({ error: 'No photo uploaded' }); return; }
+
+    const { restaurantId } = req.body;
+    if (restaurantId && !canAccessRestaurant(req, restaurantId)) {
+      res.status(403).json({ error: 'No access to this branch' });
+      return;
+    }
 
     const receivedAt = new Date();
     const dateSlug = receivedAt.toISOString().slice(0, 10);
@@ -94,6 +107,7 @@ router.post('/', upload.single('photo'), async (req: AuthRequest, res) => {
     const receipt = await prisma.receipt.create({
       data: {
         userId: req.userId!,
+        restaurantId: restaurantId || null,
         photoUrl,
         supplier: extracted.supplier || null,
         receivedAt,
@@ -116,7 +130,6 @@ router.post('/', upload.single('photo'), async (req: AuthRequest, res) => {
       include: { items: true },
     });
 
-    // Always return an array for consistent frontend handling
     res.status(201).json([receipt]);
   } catch (error: any) {
     console.error('Create receipt failed:', error);

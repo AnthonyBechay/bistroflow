@@ -58,6 +58,7 @@ export default function ScheduleDetail() {
   const [showSharePopup, setShowSharePopup] = useState(false);
   const [copiedShare, setCopiedShare] = useState(false);
   const [shiftError, setShiftError] = useState('');
+  const [me, setMe] = useState<any>(null);
   const [shiftForm, setShiftForm] = useState({
     employeeId: '', dayOfWeek: '0', startTime: '09:00', endTime: '17:00', shiftType: 'WORK', notes: '',
     breakMinutes: '30',
@@ -72,6 +73,8 @@ export default function ScheduleDetail() {
     splitBreak1: '30', splitBreak2: '0',
   };
 
+  const isManager = me?.role === 'owner' || !me?.employee || (me?.employee?.role || '').toLowerCase().includes('manager');
+
   const load = () => {
     api.get(`/schedules/${id}`).then((s: Schedule) => {
       setSchedule(s);
@@ -80,7 +83,10 @@ export default function ScheduleDetail() {
     api.get(`/schedules/${id}/summary`).then(setSummary).catch(() => {});
   };
 
-  useEffect(() => { load(); }, [id]);
+  useEffect(() => {
+    load();
+    api.get('/auth/me').then(setMe).catch(() => {});
+  }, [id]);
 
   const handleAddShift = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -420,10 +426,14 @@ export default function ScheduleDetail() {
           <button className="btn btn-secondary" onClick={() => window.print()}><Printer size={18} /> Print</button>
           <button className="btn btn-secondary" onClick={() => setShowSummary(true)}><BarChart3 size={18} /> Report</button>
           <button className="btn btn-secondary" onClick={() => setShowSharePopup(true)}><Share2 size={18} /> Share</button>
-          <button className={`btn ${schedule.published ? 'btn-secondary' : 'btn-primary'}`} onClick={handlePublish}>
-            <Check size={18} /> {schedule.published ? 'Unpublish' : 'Publish'}
-          </button>
-          <button className="btn btn-primary" onClick={() => setShowAddShift(true)}><Plus size={18} /> Add Shift</button>
+          {isManager && (
+            <>
+              <button className={`btn ${schedule.published ? 'btn-secondary' : 'btn-primary'}`} onClick={handlePublish}>
+                <Check size={18} /> {schedule.published ? 'Unpublish' : 'Publish'}
+              </button>
+              <button className="btn btn-primary" onClick={() => setShowAddShift(true)}><Plus size={18} /> Add Shift</button>
+            </>
+          )}
         </div>
       </div>
 
@@ -456,24 +466,35 @@ export default function ScheduleDetail() {
                       <strong>{employee.name}</strong>
                       {employee.role && <span className="schedule-role">{employee.role}</span>}
                     </div>
-                    <div className="emp-row-actions">
-                      <button className="emp-order-btn" title="Move up" onClick={(e) => { e.stopPropagation(); moveEmployee(employee.id, 'up'); }} disabled={rowIdx === 0}><ChevronUp size={12} /></button>
-                      <button className="emp-order-btn" title="Move down" onClick={(e) => { e.stopPropagation(); moveEmployee(employee.id, 'down'); }} disabled={rowIdx === orderedEmployees.length - 1}><ChevronDown size={12} /></button>
-                      <button className="emp-delete-btn" title="Delete row" onClick={(e) => { e.stopPropagation(); handleDeleteEmployeeShifts(employee.id); }}><Trash2 size={12} /></button>
-                    </div>
+                    {isManager && (
+                      <div className="emp-row-actions">
+                        <button className="emp-order-btn" title="Move up" onClick={(e) => { e.stopPropagation(); moveEmployee(employee.id, 'up'); }} disabled={rowIdx === 0}><ChevronUp size={12} /></button>
+                        <button className="emp-order-btn" title="Move down" onClick={(e) => { e.stopPropagation(); moveEmployee(employee.id, 'down'); }} disabled={rowIdx === orderedEmployees.length - 1}><ChevronDown size={12} /></button>
+                        <button className="emp-delete-btn" title="Delete row" onClick={(e) => { e.stopPropagation(); handleDeleteEmployeeShifts(employee.id); }}><Trash2 size={12} /></button>
+                      </div>
+                    )}
                   </div>
                   {DAYS.map((_, dayIdx) => (
                     <div
                       key={dayIdx}
                       className="schedule-cell schedule-day-cell"
-                      onClick={() => { setQuickAddDay(dayIdx); setQuickAddEmp(employee.id); resetForm(); }}
+                      onClick={() => {
+                        if (!isManager) return;
+                        setQuickAddDay(dayIdx);
+                        setQuickAddEmp(employee.id);
+                        resetForm();
+                      }}
                     >
                       {(shifts[dayIdx] || []).map(shift => (
                         <div
                           key={shift.id}
                           className={`shift-block ${getShiftTypeColor(shift.shiftType)}`}
                           style={shift.shiftType === 'WORK' ? { borderLeftColor: employee.color || '#c8956c' } : undefined}
-                          onClick={e => { e.stopPropagation(); openEditShift(shift); }}
+                          onClick={e => {
+                            if (!isManager) return;
+                            e.stopPropagation();
+                            openEditShift(shift);
+                          }}
                         >
                           <div className="shift-time">
                             {getShiftTypeIcon(shift.shiftType)}
@@ -485,7 +506,9 @@ export default function ScheduleDetail() {
                             <div className="shift-break-tag">{shift.breakMinutes}m break</div>
                           )}
                           {shift.notes && <div className="shift-notes">{shift.notes}</div>}
-                          <button className="shift-delete" onClick={e => { e.stopPropagation(); handleDeleteShift(shift.id); }}><Trash2 size={12} /></button>
+                          {isManager && (
+                            <button className="shift-delete" onClick={e => { e.stopPropagation(); handleDeleteShift(shift.id); }}><Trash2 size={12} /></button>
+                          )}
                         </div>
                       ))}
                     </div>
