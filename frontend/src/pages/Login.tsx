@@ -50,7 +50,7 @@ export default function Login() {
       <div className="login-card">
         <div className="login-header">
           <div className="login-logo">
-            <img src="/logo.png" alt="ByHadMade" className="login-logo-img" />
+            <img src="/logo.png" alt="BistroFlow" className="login-logo-img" />
           </div>
           <h1>{isRegister ? 'Create Account' : 'Welcome Back'}</h1>
           <p>{isRegister ? 'Sign up to get started' : 'Sign in to your kitchen'}</p>
