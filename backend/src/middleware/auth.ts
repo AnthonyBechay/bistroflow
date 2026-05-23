@@ -134,12 +134,20 @@ export async function requireManager(req: AuthRequest, res: Response, next: Next
     }
     const sub = await prisma.subAccount.findUnique({
       where: { id: req.subAccountId },
-      select: { email: true },
+      select: { email: true, role: true },
     });
     if (!sub) {
       res.status(401).json({ error: 'Unauthorized' });
       return;
     }
+
+    // Bypass check if sub-account has a manager/admin/scheduler role
+    const isManagerRole = ['admin', 'branch-manager', 'schedule-manager', 'hr-team'].includes(sub.role || '');
+    if (isManagerRole) {
+      next();
+      return;
+    }
+
     const employee = await prisma.employee.findFirst({
       where: {
         email: sub.email,
@@ -147,7 +155,7 @@ export async function requireManager(req: AuthRequest, res: Response, next: Next
         isActive: true,
       },
     });
-    // Treat general sub-account as manager
+    // Treat general sub-account as manager if no employee record matches
     if (!employee) {
       next();
       return;

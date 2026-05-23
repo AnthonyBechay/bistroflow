@@ -28,7 +28,10 @@ export default function Scheduling() {
   const [schedError, setSchedError] = useState('');
   const [copyFromSchedules, setCopyFromSchedules] = useState<Schedule[]>([]);
 
-  const isManager = me?.role === 'owner' || !me?.employee || (me?.employee?.role || '').toLowerCase().includes('manager');
+  const isManager = me?.role === 'owner' || 
+    ['admin', 'branch-manager', 'schedule-manager', 'hr-team'].includes(me?.subAccountRole || '') || 
+    !me?.employee || 
+    (me?.employee?.role || '').toLowerCase().includes('manager');
 
   const load = () => {
     api.get('/restaurants').then(setRestaurants).catch(() => {});

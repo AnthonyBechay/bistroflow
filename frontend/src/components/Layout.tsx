@@ -60,6 +60,7 @@ const allSections: NavSection[] = [
 
 interface MeResponse {
   role: 'owner' | 'sub-account';
+  subAccountRole?: string;
   allowedFeatures?: string[];
   employee?: {
     id: string;
@@ -133,8 +134,15 @@ export default function Layout() {
   const [me, setMe] = useState<MeResponse | null>(null);
 
   useEffect(() => {
-    api.get('/auth/me').then(setMe).catch(() => setMe(null));
-  }, []);
+    api.get('/auth/me')
+      .then((data) => {
+        setMe(data);
+        if ((data.employee || data.subAccountRole === 'employee') && location.pathname === '/app') {
+          navigate('/app/employee-portal', { replace: true });
+        }
+      })
+      .catch(() => setMe(null));
+  }, [location.pathname, navigate]);
 
   const handleLogout = () => {
     localStorage.removeItem('token');

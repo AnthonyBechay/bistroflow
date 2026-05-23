@@ -428,9 +428,10 @@ async function seedUser(email: string, name: string, passwordPlain: string) {
       email: `manager@${email.split('@')[1]}`,
       password: hashedSubPassword,
       name: 'Assistant Manager',
+      role: 'branch-manager',
       isActive: true,
       allowedRestaurantIds: [restaurantGrande.id],
-      allowedFeatures: ['schedules', 'checklists', 'temperatures'],
+      allowedFeatures: ['ingredients', 'menus', 'recipes', 'schedules', 'orders', 'traceability', 'checklists', 'temperatures'],
     },
   });
 
@@ -442,9 +443,10 @@ async function seedUser(email: string, name: string, passwordPlain: string) {
       email: `alice.${prefix}@bistroflow.com`,
       password: hashedAlicePassword,
       name: 'Alice Smith',
+      role: 'employee',
       isActive: true,
       allowedRestaurantIds: [restaurantGrande.id],
-      allowedFeatures: ['schedules'],
+      allowedFeatures: ['employee-portal'],
     },
   });
   console.log(`✔ Sub-accounts and employee logins seeded for ${email}`);

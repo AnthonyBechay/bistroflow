@@ -73,7 +73,10 @@ export default function ScheduleDetail() {
     splitBreak1: '30', splitBreak2: '0',
   };
 
-  const isManager = me?.role === 'owner' || !me?.employee || (me?.employee?.role || '').toLowerCase().includes('manager');
+  const isManager = me?.role === 'owner' || 
+    ['admin', 'branch-manager', 'schedule-manager', 'hr-team'].includes(me?.subAccountRole || '') || 
+    !me?.employee || 
+    (me?.employee?.role || '').toLowerCase().includes('manager');
 
   const load = () => {
     api.get(`/schedules/${id}`).then((s: Schedule) => {

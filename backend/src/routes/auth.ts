@@ -92,6 +92,7 @@ router.get('/me', authenticate, async (req: AuthRequest, res) => {
         select: {
           id: true, email: true, name: true, isActive: true,
           allowedRestaurantIds: true, allowedMenuIds: true, allowedFeatures: true,
+          role: true,
         },
       });
       if (!sub || !sub.isActive) {
@@ -108,7 +109,7 @@ router.get('/me', authenticate, async (req: AuthRequest, res) => {
         include: { restaurant: true },
       });
 
-      res.json({ ...sub, role: 'sub-account', employee });
+      res.json({ ...sub, role: 'sub-account', subAccountRole: sub.role || 'employee', employee });
       return;
     }
     const user = await prisma.user.findUnique({

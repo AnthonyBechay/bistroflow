@@ -9,6 +9,7 @@ interface SubAccount {
   id: string;
   email: string;
   name: string;
+  role?: string;
   isActive: boolean;
   allowedMenuIds: string[];
   allowedRestaurantIds: string[];
@@ -29,6 +30,44 @@ const FEATURES: { key: string; label: string; desc: string }[] = [
   { key: 'temperatures', label: 'Temperature', desc: 'Device temperature monitoring' },
 ];
 
+export const ROLE_PRESETS: Record<string, { label: string; features: string[]; desc: string }> = {
+  employee: {
+    label: 'Employee (Portal Only)',
+    features: ['employee-portal'],
+    desc: 'Access only to the personal Employee Portal. No backoffice access.'
+  },
+  'branch-manager': {
+    label: 'Branch Manager',
+    features: ['ingredients', 'menus', 'recipes', 'schedules', 'orders', 'traceability', 'checklists', 'temperatures'],
+    desc: 'Access to all features, usually scoped to their assigned branch.'
+  },
+  admin: {
+    label: 'Admin',
+    features: ['ingredients', 'menus', 'recipes', 'schedules', 'orders', 'traceability', 'checklists', 'temperatures'],
+    desc: 'Full administrator access to all backoffice modules.'
+  },
+  'hr-team': {
+    label: 'HR Team',
+    features: ['schedules'],
+    desc: 'Access to schedules and employee management.'
+  },
+  'finance-team': {
+    label: 'Finance Team',
+    features: ['ingredients', 'orders', 'traceability'],
+    desc: 'Access to supplier orders, receipts traceability, and ingredient costs.'
+  },
+  'schedule-manager': {
+    label: 'Schedule Manager',
+    features: ['schedules'],
+    desc: 'Access to manage shifts and schedules.'
+  },
+  custom: {
+    label: 'Custom Permissions',
+    features: [],
+    desc: 'Manually select which modules this account can access.'
+  }
+};
+
 export default function SettingsUsers() {
   const [subAccounts, setSubAccounts] = useState<SubAccount[]>([]);
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
@@ -39,6 +78,7 @@ export default function SettingsUsers() {
   const [editing, setEditing] = useState<SubAccount | null>(null);
   const [form, setForm] = useState({
     email: '', name: '', password: '', isActive: true,
+    role: 'employee',
     allowedRestaurantIds: [] as string[],
     allowedMenuIds: [] as string[],
     allowedFeatures: [] as string[],
@@ -70,7 +110,8 @@ export default function SettingsUsers() {
     setEditing(null);
     setForm({
       email: '', name: '', password: '', isActive: true,
-      allowedRestaurantIds: [], allowedMenuIds: [], allowedFeatures: [],
+      role: 'employee',
+      allowedRestaurantIds: [], allowedMenuIds: [], allowedFeatures: ROLE_PRESETS.employee.features,
     });
     setError('');
     setShowModal(true);
@@ -83,6 +124,7 @@ export default function SettingsUsers() {
       name: sa.name,
       password: '',
       isActive: sa.isActive,
+      role: sa.role || 'employee',
       allowedRestaurantIds: sa.allowedRestaurantIds,
       allowedMenuIds: sa.allowedMenuIds,
       allowedFeatures: sa.allowedFeatures || [],
@@ -101,6 +143,7 @@ export default function SettingsUsers() {
           email: form.email,
           name: form.name,
           isActive: form.isActive,
+          role: form.role,
           allowedRestaurantIds: form.allowedRestaurantIds,
           allowedMenuIds: form.allowedMenuIds,
           allowedFeatures: form.allowedFeatures,
@@ -191,6 +234,9 @@ export default function SettingsUsers() {
                   <strong>{sa.name}</strong>
                   <div className="settings-item-meta">
                     <span><KeyRound size={11} /> {sa.email}</span>
+                    <span className="badge badge-primary" style={{ padding: '2px 8px', fontSize: '11px', textTransform: sa.role ? 'none' : 'capitalize' }}>
+                      {ROLE_PRESETS[sa.role || 'employee']?.label || sa.role}
+                    </span>
                     <span>
                       {sa.isActive
                         ? <><UserCheck size={11} /> Active</>
@@ -198,11 +244,6 @@ export default function SettingsUsers() {
                     </span>
                     <span>{sa.allowedRestaurantIds.length || 'All'} restaurants</span>
                     <span>{sa.allowedMenuIds.length || 'All'} menus</span>
-                    <span>
-                      {(sa.allowedFeatures && sa.allowedFeatures.length > 0)
-                        ? `${sa.allowedFeatures.length} features`
-                        : 'All features'}
-                    </span>
                   </div>
                 </div>
                 <div className="settings-item-actions">
@@ -256,6 +297,30 @@ export default function SettingsUsers() {
             </div>
 
             <div className="form-field">
+              <label>Role Preset</label>
+              <select
+                className="select"
+                value={form.role}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  const preset = ROLE_PRESETS[val];
+                  setForm((f) => ({
+                    ...f,
+                    role: val,
+                    allowedFeatures: val !== 'custom' ? preset.features : f.allowedFeatures,
+                  }));
+                }}
+              >
+                {Object.entries(ROLE_PRESETS).map(([k, v]) => (
+                  <option key={k} value={k}>{v.label}</option>
+                ))}
+              </select>
+              <p className="form-hint" style={{ marginTop: '4px' }}>
+                {ROLE_PRESETS[form.role]?.desc}
+              </p>
+            </div>
+
+            <div className="form-field">
               <label className="checkbox-line">
                 <input
                   type="checkbox"
@@ -269,7 +334,9 @@ export default function SettingsUsers() {
             <div className="form-field">
               <label>Allowed features</label>
               <p className="form-hint">
-                Which modules this account can open. Leave empty to grant access to all features.
+                {form.role === 'custom' 
+                  ? 'Which modules this account can open.' 
+                  : `Permissions managed automatically by the ${ROLE_PRESETS[form.role]?.label} role.`}
               </p>
               <div className="chip-list">
                 {FEATURES.map((f) => {
@@ -279,7 +346,8 @@ export default function SettingsUsers() {
                       key={f.key}
                       type="button"
                       className={`chip ${on ? 'chip-on' : ''}`}
-                      onClick={() => toggleFeature(f.key)}
+                      onClick={() => form.role === 'custom' && toggleFeature(f.key)}
+                      style={{ cursor: form.role === 'custom' ? 'pointer' : 'default', opacity: form.role === 'custom' || on ? 1 : 0.4 }}
                       title={f.desc}
                     >
                       {f.label}

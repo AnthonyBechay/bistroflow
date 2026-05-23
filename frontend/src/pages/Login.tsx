@@ -21,13 +21,18 @@ export default function Login() {
     }
   }, [navigate]);
 
-  const handleDemoLogin = async (role: 'manager' | 'employee') => {
+  const handleDemoLogin = async (role: 'owner' | 'manager' | 'employee') => {
     setError('');
     setLoading(true);
     try {
-      const credentials = role === 'manager'
-        ? { email: 'demo@bistroflow.com', password: 'demo123' }
-        : { email: 'alice.demo@bistroflow.com', password: 'alice123' };
+      let credentials;
+      if (role === 'owner') {
+        credentials = { email: 'demo@bistroflow.com', password: 'demo123' };
+      } else if (role === 'manager') {
+        credentials = { email: 'manager@bistroflow.com', password: 'manager123' };
+      } else {
+        credentials = { email: 'alice.demo@bistroflow.com', password: 'alice123' };
+      }
       const data = await api.post('/auth/login', credentials);
       localStorage.setItem('token', data.token);
       navigate('/app');
@@ -128,8 +133,11 @@ export default function Login() {
             <span>Or try the demo</span>
           </div>
           <div className="demo-buttons">
+            <button type="button" className="btn demo-btn" onClick={() => handleDemoLogin('owner')} disabled={loading}>
+              Owner Demo
+            </button>
             <button type="button" className="btn demo-btn" onClick={() => handleDemoLogin('manager')} disabled={loading}>
-              Manager Demo
+              Branch Manager Demo
             </button>
             <button type="button" className="btn demo-btn" onClick={() => handleDemoLogin('employee')} disabled={loading}>
               Employee Demo

@@ -206,6 +206,11 @@ router.post('/swaps', async (req: AuthRequest, res) => {
       return;
     }
 
+    // Clean up any old swaps for this shift first to avoid unique constraint violations
+    await prisma.shiftSwap.deleteMany({
+      where: { shiftId },
+    });
+
     const swap = await prisma.shiftSwap.create({
       data: {
         shiftId,

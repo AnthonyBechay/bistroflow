@@ -78,3 +78,6 @@ ALTER TABLE "ShiftSwap" ADD CONSTRAINT "ShiftSwap_requestingEmployeeId_fkey" FOR
 
 -- AddForeignKey
 ALTER TABLE "ShiftSwap" ADD CONSTRAINT "ShiftSwap_targetEmployeeId_fkey" FOREIGN KEY ("targetEmployeeId") REFERENCES "Employee"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddColumn SubAccount
+ALTER TABLE "SubAccount" ADD COLUMN "role" TEXT DEFAULT 'employee';
