@@ -103,27 +103,6 @@ router.get('/', async (req: AuthRequest, res) => {
   }
 });
 
-router.get('/:id', async (req: AuthRequest, res) => {
-  try {
-    const schedule = await prisma.schedule.findFirst({
-      where: { id: req.params.id as string, restaurant: { userId: req.userId! } },
-      include: {
-        restaurant: true,
-        shifts: { include: { employee: true }, orderBy: [{ dayOfWeek: 'asc' }, { startTime: 'asc' }] },
-        employeeOrders: true,
-      },
-    });
-    if (!schedule) {
-      res.status(404).json({ error: 'Schedule not found' });
-      return;
-    }
-    if (!canAccessRestaurant(req, schedule.restaurantId)) { res.status(404).json({ error: 'Schedule not found' }); return; }
-    res.json(schedule);
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch schedule' });
-  }
-});
-
 // Weekly hour summary
 router.get('/:id/summary', async (req: AuthRequest, res) => {
   try {
@@ -297,6 +276,98 @@ router.get('/report/:restaurantId', async (req: AuthRequest, res) => {
     res.json({ scheduleCount: schedules.length, employees: result });
   } catch (error) {
     res.status(500).json({ error: 'Failed to generate report' });
+  }
+});
+
+// ─── Manager Request Approvals (must be BEFORE /:id catch-all) ───
+router.get('/pending-requests', requireManager, async (req: AuthRequest, res) => {
+  try {
+    const { restaurantId } = req.query;
+    
+    const timeOffWhere: any = {
+      status: 'PENDING',
+      employee: {
+        restaurant: {
+          userId: req.userId!,
+        }
+      }
+    };
+    
+    const swapsWhere: any = {
+      status: { in: ['PENDING', 'CLAIMED'] },
+      requestingEmployee: {
+        restaurant: {
+          userId: req.userId!,
+        }
+      }
+    };
+
+    if (restaurantId) {
+      if (!canAccessRestaurant(req, restaurantId as string)) {
+        res.json({ timeOff: [], swaps: [] });
+        return;
+      }
+      timeOffWhere.employee.restaurant.id = restaurantId as string;
+      swapsWhere.requestingEmployee.restaurant.id = restaurantId as string;
+    } else {
+      const scope = restaurantScope(req, 'id');
+      if (scope.id) {
+        timeOffWhere.employee.restaurant.id = scope.id;
+        swapsWhere.requestingEmployee.restaurant.id = scope.id;
+      }
+    }
+
+    const timeOff = await prisma.timeOffRequest.findMany({
+      where: timeOffWhere,
+      include: {
+        employee: {
+          include: { restaurant: true }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    const swaps = await prisma.shiftSwap.findMany({
+      where: swapsWhere,
+      include: {
+        shift: {
+          include: { schedule: true }
+        },
+        requestingEmployee: {
+          include: { restaurant: true }
+        },
+        targetEmployee: {
+          include: { restaurant: true }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    res.json({ timeOff, swaps });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch pending requests' });
+  }
+});
+
+// ─── Single schedule by ID (must be AFTER all static-named GET routes) ───
+router.get('/:id', async (req: AuthRequest, res) => {
+  try {
+    const schedule = await prisma.schedule.findFirst({
+      where: { id: req.params.id as string, restaurant: { userId: req.userId! } },
+      include: {
+        restaurant: true,
+        shifts: { include: { employee: true }, orderBy: [{ dayOfWeek: 'asc' }, { startTime: 'asc' }] },
+        employeeOrders: true,
+      },
+    });
+    if (!schedule) {
+      res.status(404).json({ error: 'Schedule not found' });
+      return;
+    }
+    if (!canAccessRestaurant(req, schedule.restaurantId)) { res.status(404).json({ error: 'Schedule not found' }); return; }
+    res.json(schedule);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch schedule' });
   }
 });
 
@@ -546,75 +617,6 @@ router.delete('/shifts/:shiftId', requireManager, async (req: AuthRequest, res) 
   }
 });
 
-// ─── Manager Request Approvals ───
-router.get('/pending-requests', requireManager, async (req: AuthRequest, res) => {
-  try {
-    const { restaurantId } = req.query;
-    
-    const timeOffWhere: any = {
-      status: 'PENDING',
-      employee: {
-        restaurant: {
-          userId: req.userId!,
-        }
-      }
-    };
-    
-    const swapsWhere: any = {
-      status: { in: ['PENDING', 'CLAIMED'] },
-      requestingEmployee: {
-        restaurant: {
-          userId: req.userId!,
-        }
-      }
-    };
-
-    if (restaurantId) {
-      if (!canAccessRestaurant(req, restaurantId as string)) {
-        res.json({ timeOff: [], swaps: [] });
-        return;
-      }
-      timeOffWhere.employee.restaurant.id = restaurantId as string;
-      swapsWhere.requestingEmployee.restaurant.id = restaurantId as string;
-    } else {
-      const scope = restaurantScope(req, 'id');
-      if (scope.id) {
-        timeOffWhere.employee.restaurant.id = scope.id;
-        swapsWhere.requestingEmployee.restaurant.id = scope.id;
-      }
-    }
-
-    const timeOff = await prisma.timeOffRequest.findMany({
-      where: timeOffWhere,
-      include: {
-        employee: {
-          include: { restaurant: true }
-        }
-      },
-      orderBy: { createdAt: 'desc' }
-    });
-
-    const swaps = await prisma.shiftSwap.findMany({
-      where: swapsWhere,
-      include: {
-        shift: {
-          include: { schedule: true }
-        },
-        requestingEmployee: {
-          include: { restaurant: true }
-        },
-        targetEmployee: {
-          include: { restaurant: true }
-        }
-      },
-      orderBy: { createdAt: 'desc' }
-    });
-
-    res.json({ timeOff, swaps });
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch pending requests' });
-  }
-});
 
 router.post('/swaps/:id/approve', requireManager, async (req: AuthRequest, res) => {
   try {

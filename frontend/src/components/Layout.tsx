@@ -172,12 +172,13 @@ export default function Layout() {
 
         const isUserEmployee = data.subAccountRole === 'employee' || (!isManager && !!data.employee);
 
-        if (isUserEmployee && !location.pathname.startsWith('/app/employee-portal')) {
+        if (isUserEmployee && !window.location.pathname.startsWith('/app/employee-portal')) {
           navigate('/app/employee-portal', { replace: true });
         }
       })
       .catch(() => setMe(null));
-  }, [location.pathname, navigate]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleLogout = () => {
     localStorage.removeItem('token');

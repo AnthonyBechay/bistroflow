@@ -391,7 +391,7 @@ async function seedUser(email, name, passwordPlain) {
       name: 'Assistant Manager',
       isActive: true,
       allowedRestaurantIds: [restaurantGrande.id],
-      allowedFeatures: ['schedules', 'checklists', 'temperatures'],
+      allowedFeatures: ['ingredients', 'menus', 'recipes', 'schedules', 'orders', 'traceability', 'checklists', 'temperatures'],
     },
   });
 
