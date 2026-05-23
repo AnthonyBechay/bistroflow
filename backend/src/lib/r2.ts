@@ -10,7 +10,7 @@ const s3 = new S3Client({
   },
 });
 
-const BUCKET = process.env.R2_BUCKET_NAME || 'byhadmade';
+const BUCKET = process.env.R2_BUCKET_NAME || 'bistroflow';
 const PUBLIC_URL = process.env.R2_PUBLIC_URL || '';
 
 export async function uploadToR2(
