@@ -25,6 +25,42 @@ async function main() {
   const email = 'admin@bistroflow.com';
   console.log(`Starting seed database. Scoping everything to ${email}...`);
 
+  console.log('Cleaning up existing data...');
+  await prisma.tempLog.deleteMany({});
+  await prisma.tempDevice.deleteMany({});
+  await prisma.checklistRunItem.deleteMany({});
+  await prisma.checklistRun.deleteMany({});
+  await prisma.checklistTemplateItem.deleteMany({});
+  await prisma.checklistTemplate.deleteMany({});
+  await prisma.menuItem.deleteMany({});
+  await prisma.menu.deleteMany({});
+  await prisma.recipeIngredient.deleteMany({});
+  await prisma.recipe.deleteMany({});
+  await prisma.subcategory.deleteMany({});
+  await prisma.category.deleteMany({});
+  await prisma.orderItem.deleteMany({});
+  await prisma.orderPhoto.deleteMany({});
+  await prisma.order.deleteMany({});
+  await prisma.receiptItem.deleteMany({});
+  await prisma.receipt.deleteMany({});
+  await prisma.ingredientTag.deleteMany({});
+  await prisma.ingredient.deleteMany({});
+  await prisma.ingredientSubcategory.deleteMany({});
+  await prisma.ingredientCategory.deleteMany({});
+  await prisma.storageLocation.deleteMany({});
+  await prisma.supplier.deleteMany({});
+  
+  await prisma.timeOffRequest.deleteMany({});
+  await prisma.availability.deleteMany({});
+  await prisma.shiftSwap.deleteMany({});
+  await prisma.shift.deleteMany({});
+  await prisma.scheduleEmployeeOrder.deleteMany({});
+  await prisma.schedule.deleteMany({});
+  await prisma.employee.deleteMany({});
+  await prisma.restaurant.deleteMany({});
+  await prisma.subAccount.deleteMany({});
+  await prisma.user.deleteMany({});
+
   // 1. Get or Create Owner User
   let user = await prisma.user.findUnique({ where: { email } });
   if (!user) {
