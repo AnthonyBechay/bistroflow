@@ -63,6 +63,7 @@ interface MeResponse {
   role: 'owner' | 'sub-account';
   subAccountRole?: string;
   allowedFeatures?: string[];
+  email?: string;
   employee?: {
     id: string;
     name: string;
@@ -74,6 +75,32 @@ interface MeResponse {
 function filterSections(me: MeResponse | null): NavSection[] {
   if (!me) return allSections; // optimistic: show everything until we know
   
+  const isManager = me.role === 'owner' || 
+    ['admin', 'branch-manager', 'schedule-manager', 'hr-team'].includes(me.subAccountRole || '') ||
+    (me.employee && (me.employee.role || '').toLowerCase().includes('manager')) ||
+    (me.email && (me.email.toLowerCase().startsWith('manager@') || me.email.toLowerCase().includes('manager')));
+
+  const isUserEmployee = me.subAccountRole === 'employee' || (!isManager && !!me.employee);
+
+  if (isUserEmployee) {
+    return [
+      {
+        key: 'employee-portal',
+        label: 'Employee Portal',
+        icon: Users,
+        items: [
+          { to: '/app/employee-portal', icon: CalendarDays, label: 'My Space' },
+        ],
+      },
+      {
+        key: 'settings',
+        label: 'Settings',
+        icon: Settings,
+        items: [],
+      }
+    ];
+  }
+
   let sections = [...allSections];
   if (me.employee) {
     sections = [
@@ -138,7 +165,14 @@ export default function Layout() {
     api.get('/auth/me')
       .then((data) => {
         setMe(data);
-        if ((data.employee || data.subAccountRole === 'employee') && location.pathname === '/app') {
+        const isManager = data.role === 'owner' || 
+          ['admin', 'branch-manager', 'schedule-manager', 'hr-team'].includes(data.subAccountRole || '') ||
+          (data.employee && (data.employee.role || '').toLowerCase().includes('manager')) ||
+          (data.email && (data.email.toLowerCase().startsWith('manager@') || data.email.toLowerCase().includes('manager')));
+
+        const isUserEmployee = data.subAccountRole === 'employee' || (!isManager && !!data.employee);
+
+        if (isUserEmployee && !location.pathname.startsWith('/app/employee-portal')) {
           navigate('/app/employee-portal', { replace: true });
         }
       })

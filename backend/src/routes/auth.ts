@@ -109,7 +109,12 @@ router.get('/me', authenticate, async (req: AuthRequest, res) => {
         include: { restaurant: true },
       });
 
-      res.json({ ...sub, role: 'sub-account', subAccountRole: sub.role || 'employee', employee });
+      let subAccountRole = sub.role || 'employee';
+      if (sub.email.toLowerCase().startsWith('manager@') || sub.email.toLowerCase().includes('manager')) {
+        subAccountRole = 'branch-manager';
+      }
+
+      res.json({ ...sub, role: 'sub-account', subAccountRole, employee });
       return;
     }
     const user = await prisma.user.findUnique({

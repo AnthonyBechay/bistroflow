@@ -141,8 +141,10 @@ export async function requireManager(req: AuthRequest, res: Response, next: Next
       return;
     }
 
-    // Bypass check if sub-account has a manager/admin/scheduler role
-    const isManagerRole = ['admin', 'branch-manager', 'schedule-manager', 'hr-team'].includes(sub.role || '');
+    // Bypass check if sub-account has a manager/admin/scheduler role, or email implies manager
+    const subRole = sub.role || '';
+    const isManagerEmail = sub.email.toLowerCase().startsWith('manager@') || sub.email.toLowerCase().includes('manager');
+    const isManagerRole = ['admin', 'branch-manager', 'schedule-manager', 'hr-team'].includes(subRole) || isManagerEmail;
     if (isManagerRole) {
       next();
       return;

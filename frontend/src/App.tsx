@@ -41,9 +41,9 @@ export default function App() {
           <Route path="menus" element={<Menus />} />
           <Route path="menus/:id" element={<MenuDetail />} />
           <Route path="scheduling" element={<Scheduling />} />
-          <Route path="scheduling/:id" element={<ScheduleDetail />} />
-          <Route path="scheduling/salaries/:restaurantId" element={<Salaries />} />
           <Route path="scheduling/requests" element={<SettingsPendingRequests />} />
+          <Route path="scheduling/salaries/:restaurantId" element={<Salaries />} />
+          <Route path="scheduling/:id" element={<ScheduleDetail />} />
           <Route path="orders" element={<Orders />} />
           <Route path="traceability" element={<Traceability />} />
           <Route path="checklists" element={<Checklist />} />
