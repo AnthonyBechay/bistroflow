@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, ChefHat, UtensilsCrossed, Salad, CalendarDays, Package,
-  ScanLine, Settings, LogOut, BookOpen, Users, ClipboardList, X, CheckSquare, Thermometer,
+  ScanLine, Settings, LogOut, BookOpen, Users, ClipboardList, X, CheckSquare, Thermometer, Clock,
 } from 'lucide-react';
 import { api } from '../lib/api';
 import './Layout.css';
@@ -34,6 +34,7 @@ const allSections: NavSection[] = [
     icon: Users,
     items: [
       { to: '/app/scheduling', icon: CalendarDays, label: 'Schedules', feature: 'schedules' },
+      { to: '/app/scheduling/requests', icon: Clock, label: 'Pending Approvals', feature: 'schedules' },
     ],
   },
   {

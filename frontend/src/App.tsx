@@ -17,6 +17,7 @@ import Checklist from './pages/Checklist';
 import Temperature from './pages/Temperature';
 import Settings from './pages/Settings';
 import EmployeePortal from './pages/EmployeePortal';
+import SettingsPendingRequests from './pages/SettingsPendingRequests';
 import Layout from './components/Layout';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -42,6 +43,7 @@ export default function App() {
           <Route path="scheduling" element={<Scheduling />} />
           <Route path="scheduling/:id" element={<ScheduleDetail />} />
           <Route path="scheduling/salaries/:restaurantId" element={<Salaries />} />
+          <Route path="scheduling/requests" element={<SettingsPendingRequests />} />
           <Route path="orders" element={<Orders />} />
           <Route path="traceability" element={<Traceability />} />
           <Route path="checklists" element={<Checklist />} />

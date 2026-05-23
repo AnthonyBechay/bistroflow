@@ -13,8 +13,8 @@
   z-index: 100;
   padding: 0 24px;
   backdrop-filter: blur(20px);
-  background: rgba(10, 10, 8, 0.8);
-  border-bottom: 1px solid rgba(200, 149, 108, 0.08);
+  background: rgba(248, 244, 235, 0.85); /* light cream matching var(--color-bg) */
+  border-bottom: 1px solid var(--color-border);
 }
 
 .landing-nav-inner {

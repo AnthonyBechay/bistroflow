@@ -117,6 +117,13 @@ export default function SettingsPendingRequests() {
 
   return (
     <div className="pending-requests-settings">
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">Pending Approvals</h1>
+          <p className="page-subtitle">Approve or deny employee shift swaps and time-off requests</p>
+        </div>
+      </div>
+
       <div style={{ marginBottom: '20px', display: 'flex', gap: '12px', alignItems: 'center' }}>
         <span style={{ fontSize: '14px', fontWeight: 500, color: 'var(--color-text-secondary)' }}>
           Filter by Branch:
