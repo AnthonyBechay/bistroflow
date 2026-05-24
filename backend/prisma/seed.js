@@ -386,9 +386,10 @@ async function seedUser(email, name, passwordPlain) {
   await prisma.subAccount.create({
     data: {
       ownerId: userId,
-      email: `manager@${email.split('@')[1]}`,
+      email: `manager.${prefix}@bistroflow.com`,
       password: hashedSubPassword,
       name: 'Assistant Manager',
+      role: 'branch-manager',
       isActive: true,
       allowedRestaurantIds: [restaurantGrande.id],
       allowedFeatures: ['ingredients', 'menus', 'recipes', 'schedules', 'orders', 'traceability', 'checklists', 'temperatures'],

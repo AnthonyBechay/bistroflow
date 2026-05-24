@@ -29,7 +29,7 @@ export default function Login() {
       if (role === 'owner') {
         credentials = { email: 'demo@bistroflow.com', password: 'demo123' };
       } else if (role === 'manager') {
-        credentials = { email: 'manager@bistroflow.com', password: 'manager123' };
+        credentials = { email: 'manager.demo@bistroflow.com', password: 'manager123' };
       } else {
         credentials = { email: 'alice.demo@bistroflow.com', password: 'alice123' };
       }
